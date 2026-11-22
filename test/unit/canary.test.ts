@@ -91,7 +91,9 @@ describe('canary generator', () => {
   it('reads supplied values from the environment and refuses very short ones', () => {
     const opts = { rng: seededRng('x'), allowGeneratedPhone: false, env: { MY_PHONE: '0000012345' } };
     expect(generateCanary('phone', { type: 'phone', valueFromEnv: 'MY_PHONE' }, opts).value).toBe('0000012345');
-    expect(() => generateCanary('t', { type: 'text', value: 'abc' }, opts)).toThrow(/too short/);
+    expect(() => generateCanary('t', { type: 'text', value: 'ab' }, opts)).toThrow(/"ab" \(the typed text\) is too short/);
+    expect(generateCanary('t', { type: 'search-term', value: 'HIV' }, opts).unique).toBe(false);
+    expect(() => generateCanary('t', { type: 'email', value: 'a@b.c' }, opts)).toThrow(/too short/);
     expect(() => generateCanary('p', { type: 'phone', valueFromEnv: 'NOPE' }, opts)).toThrow(/not set/);
   });
 });

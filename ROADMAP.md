@@ -12,6 +12,11 @@ Khara Check is maintained by Khara Index. This page says what works, what we dec
 * Sealed evidence folders: a hash-chained request log, a manifest and one seal; `verify` re-runs the analysis and reproduces both reports byte for byte.
 * Three ways to test sites that block automation, none of which disguise it: handoff to a person at a bot check, listen-only `attach`, and `import` of a HAR file.
 * Consent testing (banner ignored, "Reject all", "Accept all"), repeat counts, and a scorecard across many sites.
+* Detection of collectors behind the site's own address (DNS aliases recorded at capture time, and RudderStack, Segment, Snowplow and server-side Google tagging shapes), a separate tier for Referer-only receipts, and honest headlines for runs that stop.
+
+## Field tested
+
+On 22 November 2026 Khara Check was run, logged out with invented searches, on eight Indian pharmacy and lab websites from Khara Index Report 1, twice each. Seven completed and one blocked the automated browser, which the report says. Every evidence folder verified. It was also applied to 27 of Report 1's original hand-made recordings through `import`. The problems those runs exposed are fixed and covered by tests.
 
 ## Decisions
 

@@ -128,6 +128,12 @@ export interface RunInfo {
   /** Moments a person took over the browser during an automated run (bot checks, OTPs, logins). */
   handoffs?: StepRecord[];
   notes: string[];
+  /**
+   * DNS aliases (CNAME chains) of the site's own hostnames, looked up when the capture was made.
+   * A hostname that looks like the site's own but is an alias for another company's server is
+   * counted as that company.
+   */
+  dns?: Record<string, string[]>;
 }
 
 /** One place inside one request where a canary was found. */
@@ -195,6 +201,14 @@ export interface Recipient {
   vendor?: string;
   product?: string;
   category?: VendorCategory;
+  /** The other company's server that a site-looking hostname is an alias for (from run.dns). */
+  aliasOf?: string;
+  /**
+   * For a request to the site's own address that has the shape of a known data collection
+   * service (for example a RudderStack or server-side Google Tag Manager endpoint): that service.
+   * The browser cannot see where such a collector sends the data next.
+   */
+  collector?: { vendor: string; product: string };
 }
 
 export interface Finding {

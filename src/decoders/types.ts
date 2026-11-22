@@ -156,3 +156,10 @@ export function unwrapJson(text: string | undefined): unknown {
 }
 
 export type { DecodedCall };
+
+/** Plain words for where in a page address a value sat, from the matcher's field path below it. */
+export function inAddress(rest: string[], what = 'the page address'): string {
+  if (!rest.length) return what;
+  if (rest[0] === '(path)') return `${what}, whose path contains it`;
+  return `${what}, which contains it (parameter "${rest.join(' › ')}")`;
+}

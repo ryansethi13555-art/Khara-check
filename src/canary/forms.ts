@@ -16,6 +16,11 @@ export interface CanaryForm {
   exactness: 'full' | 'marker';
   /** Plain-language description, used in reports. */
   label: string;
+  /**
+   * Only count a match that stands as a whole word (no letter or digit on either side).
+   * Used for common values such as "HIV", which would otherwise turn up inside random tokens.
+   */
+  wholeWord?: boolean;
 }
 
 const HASHES: { algorithm: HashAlgorithm; name: string }[] = [
@@ -26,6 +31,8 @@ const HASHES: { algorithm: HashAlgorithm; name: string }[] = [
 
 /** Shortest plain needle we are willing to search for. Shorter strings collide with ordinary text. */
 export const MIN_PLAIN_NEEDLE = 6;
+/** Shortest common (non-unique) search value, searched for as a whole word only. */
+export const MIN_COMMON_NEEDLE = 3;
 
 interface Variant {
   id: string;
@@ -106,9 +113,12 @@ export function formsFor(canary: Canary): CanaryForm[] {
     seen.add(key);
     forms.push({ canary: canary.name, ...form });
   };
+  // A common value (no unique marker) is matched only as a whole word, and only in forms that keep
+  // its words apart: joined forms ("pregnancy_test_kit") match product page addresses by coincidence.
+  const common = !canary.unique && (canary.type === 'search-term' || canary.type === 'text');
   const plain = (id: string, needle: string, label: string, exactness: 'full' | 'marker' = 'full'): void => {
-    if (needle.length < MIN_PLAIN_NEEDLE) return;
-    add({ id, kind: 'plain', needle: needle.toLowerCase(), caseSensitive: false, exactness, label });
+    if (needle.length < (common ? MIN_COMMON_NEEDLE : MIN_PLAIN_NEEDLE)) return;
+    add({ id, kind: 'plain', needle: needle.toLowerCase(), caseSensitive: false, exactness, label, ...(common ? { wholeWord: true } : {}) });
   };
 
   const variants = normalisedVariants(canary);
@@ -133,11 +143,13 @@ export function formsFor(canary: Canary): CanaryForm[] {
     if (/\s/.test(base)) {
       const words = base.split(/\s+/);
       plain('plain:collapsed', words.join(' '), 'as readable text');
-      plain('plain:hyphen', words.join('-'), 'as readable text, words joined with hyphens');
-      plain('plain:underscore', words.join('_'), 'as readable text, words joined with underscores');
+      if (!common) {
+        plain('plain:hyphen', words.join('-'), 'as readable text, words joined with hyphens');
+        plain('plain:underscore', words.join('_'), 'as readable text, words joined with underscores');
+      }
       plain('plain:plus', words.join('+'), 'as readable text, words joined with plus signs');
       plain('plain:pct20', words.join('%20'), 'as readable text, URL-encoded');
-      plain('plain:nospace', words.join(''), 'as readable text, spaces removed');
+      if (!common) plain('plain:nospace', words.join(''), 'as readable text, spaces removed');
     }
     if (canary.unique && canary.marker && canary.marker !== base) {
       plain('marker', canary.marker, 'in part: only the unique marker', 'marker');

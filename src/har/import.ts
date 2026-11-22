@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { generateCanary } from '../canary/generate.js';
 import { seededRng } from '../util/random.js';
 import type { Journey } from '../journey/schema.js';
-import { hostOf, registrableDomain } from '../util/domains.js';
+import { hostMatches, hostOf, registrableDomain } from '../util/domains.js';
+import { ownHosts, resolveAliases } from '../capture/dns.js';
 import { TOOL } from '../version.js';
 import type { Canary, Initiator, PostData, RequestRecord, RunInfo, StepRecord } from '../types.js';
 
@@ -56,7 +57,7 @@ interface HarStack {
   parent?: HarStack;
 }
 
-interface HarFile {
+export interface HarFile {
   log: {
     creator?: { name?: string; version?: string };
     browser?: { name?: string; version?: string };
@@ -137,7 +138,11 @@ const wsData = (data: string): PostData => {
   return { encoding: 'utf8', text: data, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
 };
 
-export function importHar(har: HarFile, journey: Journey, opts: { fileName: string; importedAt?: number }): ImportResult {
+export function importHar(
+  har: HarFile,
+  journey: Journey,
+  opts: { fileName: string; importedAt?: number; dns?: Record<string, string[]> },
+): ImportResult {
   if (journey.network.mode !== 'live') throw new Error('a HAR file records the real internet, so the site must be given as a live address');
   const origin = new URL(journey.site.url!).origin;
 
@@ -263,7 +268,9 @@ export function importHar(har: HarFile, journey: Journey, opts: { fileName: stri
       `Imported from the HAR file ${opts.fileName} on ${new Date(opts.importedAt ?? Date.now()).toISOString()}. The original file is kept, unchanged, at capture/original.har.`,
       'A person recorded this traffic in their own browser. Khara Check did not watch the recording, so the seal proves the evidence has not changed since it was imported, not since it was recorded.',
       'The planted values are the ones the person says they typed.',
+      ...(opts.dns && Object.keys(opts.dns).length ? ['DNS aliases of the site\'s own hostnames were looked up at import time, not when the traffic was recorded.'] : []),
     ],
+    ...(opts.dns && Object.keys(opts.dns).length ? { dns: opts.dns } : {}),
   };
   return { run, canaries, records, cookies: [] };
 }

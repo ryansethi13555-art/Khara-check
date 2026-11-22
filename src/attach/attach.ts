@@ -7,7 +7,8 @@ import { describeStep, substitute, type Journey } from '../journey/schema.js';
 import type { RunResult } from '../journey/runner.js';
 import { serveFolder, type LocalSite } from '../serve/static-server.js';
 import type { RunInfo, StepRecord } from '../types.js';
-import { hostOf, registrableDomain } from '../util/domains.js';
+import { hostMatches, hostOf, registrableDomain } from '../util/domains.js';
+import { ownHosts, resolveAliases } from '../capture/dns.js';
 import { cryptoRng, seededRng } from '../util/random.js';
 import { PLAYWRIGHT_VERSION, TOOL } from '../version.js';
 import { CdpConnection } from './cdp-client.js';
@@ -244,6 +245,8 @@ export async function attachJourney(journey: Journey, opts: AttachOptions): Prom
   await localSite?.close();
 
   const siteHost = hostOf(origin);
+  const ownDomains = [...new Set([registrableDomain(siteHost), ...journey.site.firstParty.map((d) => d.toLowerCase())])];
+  const dnsAliases = sandbox ? {} : await resolveAliases(ownHosts(records.map((r) => r.url), (h) => ownDomains.some((d) => hostMatches(h, d))));
   const run: RunInfo = {
     tool: TOOL,
     journeyName: journey.name,
@@ -271,6 +274,7 @@ export async function attachJourney(journey: Journey, opts: AttachOptions): Prom
     },
     steps,
     notes,
+    ...(Object.keys(dnsAliases).length ? { dns: dnsAliases } : {}),
   };
   return { run, canaries, records, cookies };
 }

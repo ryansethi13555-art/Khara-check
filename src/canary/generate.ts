@@ -50,8 +50,12 @@ export function generateCanary(name: string, spec: CanarySpec, opts: GenerateOpt
   }
   if (supplied !== undefined) {
     const value = String(supplied);
-    if (value.trim().length < 6) {
-      throw new Error(`Canary "${name}" is too short to be searched for safely (need at least 6 characters).`);
+    // A common search word as short as "HIV" is allowed: it is matched only as a whole word, and
+    // findings based on it are labelled "common". Emails and phone numbers need at least 6 characters.
+    const textual = spec.type === 'search-term' || spec.type === 'text';
+    const min = textual && spec.unique !== true ? 3 : 6;
+    if (value.trim().length < min) {
+      throw new Error(`"${value}" (the ${label}) is too short to be searched for safely: it needs at least ${min} characters.`);
     }
     return {
       name,

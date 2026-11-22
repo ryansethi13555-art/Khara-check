@@ -11,8 +11,14 @@ export interface ReportModel {
   companies: string[];
   groups: LeakGroup[];
   /** Rows of the "who received what" grid. */
-  grid: { recipient: string; vendorLine: string; category: string; cells: (Cell | null)[] }[];
+  grid: { recipient: string; vendorLine: string; category: string; refererOnly: boolean; cells: (Cell | null)[] }[];
   firstParty: { canary: Canary; requests: number; ways: string[] }[];
+  /** Data collectors at the site's own address (RudderStack, server-side tagging): what they received. */
+  collectors: { name: string; host: string; labels: string[]; requests: number; requestIds: string[] }[];
+  /** Companies that received a value only through the Referer header, not in a tracker's own data. */
+  refererOnly: string[];
+  /** Set when the journey stopped before its last step (a failed step or a bot check nobody cleared). */
+  stopped?: { after: string; reason: string };
   quiet: { name: string; category: string; requests: number; purpose?: string }[];
   questions: { question: string; basis: string }[];
   when: string;
@@ -38,6 +44,8 @@ export interface LeakGroup {
   detail: string;
   stepLabel: string;
   seconds: string;
+  /** True when every sighting is the Referer header: the browser passed on the page address while loading a file. */
+  refererOnly: boolean;
 }
 
 const CATEGORY: Record<VendorCategory, string> = {
@@ -97,7 +105,7 @@ function howPhrase(cell: Cell, best: Sighting): string {
     case 'plain':
       return 'as readable text';
     case 'encoded':
-      return `${best.formLabel.replace(' (readable once decoded)', '')}, readable once decoded`;
+      return `encoded (${best.formLabel.replace(' (readable once decoded)', '')}), readable once decoded`;
     case 'hash': {
       const algorithm = /SHA-256|SHA-1|MD5/.exec(best.formLabel)?.[0] ?? 'a';
       return `as a ${algorithm} hash`;
@@ -157,20 +165,21 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
     const company = companyName(first);
     const name = recipientName(first);
     const identified = Boolean(first.recipient.vendor);
-    const who = identified
-      ? company === name
-        ? company
-        : `${company} (${name})`
-      : `${first.recipient.host}, a company Khara Check does not recognise`;
+    const named = identified ? (company === name ? company : `${company} (${name})`) : `${first.recipient.host} (a company Khara Check does not recognise)`;
+    const who = first.recipient.aliasOf
+      ? `${named}, at ${first.recipient.host}, an address that looks like the site's own but is an alias for ${first.recipient.aliasOf}`
+      : named;
     const step = run.steps[first.step];
     const stepLabel = step?.label ?? 'the page loaded';
-    const verb =
+    const how = howPhrase(cell, best);
+    const when = `${seconds(first.msAfterStep)} after the step "${stepLabel}"`;
+    const sentence =
       first.delivery === 'sandboxed'
-        ? `The page tried to send ${quote(canary)} to ${who}`
+        ? `The page tried to send ${quote(canary)} ${how} to ${who}, ${when}.`
         : first.delivery === 'delivered'
-          ? `${cap(quote(canary))} was sent to ${who}`
-          : `The page tried to send ${quote(canary)} to ${who}, but the request did not complete`;
-    const sentence = `${verb} ${howPhrase(cell, best)}, ${seconds(first.msAfterStep)} after the step "${stepLabel}".`;
+          ? `${cap(quote(canary))} was sent ${how} to ${who}, ${when}.`
+          : `The page tried to send ${quote(canary)} ${how} to ${who}, ${when}, but the request did not complete.`;
+    const refererOnly = findings.every((f) => f.sightings.every((s) => s.surface === 'header' && s.surfaceName === 'referer'));
     const where = best.meaning
       ? `It travelled as ${best.meaning}.`
       : best.field
@@ -190,6 +199,7 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
       detail: where + times,
       stepLabel,
       seconds: seconds(first.msAfterStep),
+      refererOnly,
     };
   });
 
@@ -197,27 +207,77 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
   const weight = { plain: 3, encoded: 2, hash: 1, partial: 0 } as const;
   const score = (r: string): number =>
     groups.filter((g) => g.recipient === r).reduce((sum, g) => sum + 10 + weight[g.cell.kind], 0);
+  // A recipient reached only through the Referer header ranks below every tracker that got the value in its own data.
+  const onlyByReferer = (r: string): boolean => groups.filter((g) => g.recipient === r).every((g) => g.refererOnly);
   const recipients = [...new Set(groups.map((g) => g.recipient))].sort(
     (a, b) =>
+      Number(onlyByReferer(a)) - Number(onlyByReferer(b)) ||
       Number(groups.find((g) => g.recipient === b)!.identified) - Number(groups.find((g) => g.recipient === a)!.identified) ||
       score(b) - score(a),
   );
-  const companies = [...new Set(recipients.map((r) => groups.find((g) => g.recipient === r)!.company))];
-  const typed = list(analysis.canaries.filter((c) => groups.some((g) => g.canary.name === c.name)).map((c) => `the ${c.label}`));
+  const direct = groups.filter((g) => !g.refererOnly);
+  const companies = [...new Set(recipients.filter((r) => !onlyByReferer(r)).map((r) => groups.find((g) => g.recipient === r)!.company))];
+  const refererOnly = [
+    ...new Set(recipients.filter(onlyByReferer).map((r) => groups.find((g) => g.recipient === r)!.company)),
+  ].filter((c) => !companies.includes(c));
+  const typed = list(analysis.canaries.filter((c) => direct.some((g) => g.canary.name === c.name)).map((c) => `the ${c.label}`));
+
+  // Collectors at the site's own address: the browser cannot see where they send the data next.
+  const collectorMap = new Map<string, ReportModel['collectors'][number]>();
+  for (const f of analysis.firstParty) {
+    const c = f.recipient.collector;
+    if (!c) continue;
+    const key = `${c.product}\u0000${f.recipient.host}`;
+    const entry = collectorMap.get(key) ?? { name: c.product, host: f.recipient.host, labels: [], requests: 0, requestIds: [] };
+    const label = canaryByName.get(f.canary)?.label ?? f.canary;
+    if (!entry.labels.includes(label)) entry.labels.push(label);
+    if (!entry.requestIds.includes(f.requestId)) {
+      entry.requestIds.push(f.requestId);
+      entry.requests++;
+    }
+    collectorMap.set(key, entry);
+  }
+  const collectors = [...collectorMap.values()];
+  const collectorLine = collectors
+    .map((c) => `${list(c.labels.map((l) => `the ${l}`))} went to a ${c.name} collector at ${c.host}`)
+    .join('; ');
+
+  const failedStep = run.steps.find((s) => !s.ok);
+  const failedHandoff = (run.handoffs ?? []).find((h) => !h.ok);
+  const stopStep = failedStep ?? failedHandoff;
+  const stopped = stopStep
+    ? {
+        after: failedHandoff && !failedStep ? (run.steps[failedHandoff.index]?.label ?? 'the first step') : stopStep.label,
+        reason: failedHandoff && !failedStep ? failedHandoff.label : (stopStep.error ?? 'The step failed.'),
+      }
+    : undefined;
 
   let headline: string;
   let subhead: string;
-  if (!groups.length) {
-    headline = 'Nothing the customer typed left the site in this run.';
-    subhead = analysis.contacted.length
-      ? `${analysis.contacted.length} outside ${analysis.contacted.length === 1 ? 'service was' : 'services were'} contacted, but none of them received a planted value.`
-      : 'No outside company was contacted at all.';
-  } else {
+  const refererNote = refererOnly.length
+    ? ` ${refererOnly.length} more ${refererOnly.length === 1 ? 'service' : 'services'} (${list(refererOnly)}) received it only in the page address the browser passes on when it loads a file (the Referer header).`
+    : '';
+  if (direct.length) {
     const n = companies.length;
     headline = sandbox
       ? `This page tried to tell ${n} ${n === 1 ? 'company' : 'companies'} what the customer typed.`
       : `${n} ${n === 1 ? 'company was' : 'companies were'} sent what the customer typed.`;
-    subhead = `${cap(typed)} ${sandbox ? 'went out' : 'went'} to ${list(companies)}.`;
+    subhead = `${cap(typed)} ${sandbox ? 'went out' : 'went'} to ${list(companies)}.${refererNote}${collectors.length ? ` Also, ${collectorLine}, at the site's own address.` : ''}`;
+  } else if (refererOnly.length) {
+    const n = refererOnly.length;
+    headline = `The page address passed what the customer typed to ${n} ${n === 1 ? 'company' : 'companies'}.`;
+    subhead = `No outside company received it in its own data, but the site lets the browser send the full page address, including what was typed, to ${list(refererOnly)} when the page loads their files (the Referer header).${collectors.length ? ` Also, ${collectorLine}.` : ''}`;
+  } else if (collectors.length) {
+    headline = 'Nothing went straight to an outside company, but a data collector at the site\'s own address received what the customer typed.';
+    subhead = `${cap(collectorLine)}. It sits at the site's own address, so the browser cannot see which companies it passes the data on to.`;
+  } else if (stopped) {
+    headline = 'This run stopped early, so it does not show what the site does.';
+    subhead = `It stopped after "${stopped.after}": ${stopped.reason.replace(/\.$/, '')}. Nothing planted left the site before that point.`;
+  } else {
+    headline = 'Nothing the customer typed left the site in this run.';
+    subhead = analysis.contacted.length
+      ? `${analysis.contacted.length} outside ${analysis.contacted.length === 1 ? 'service was' : 'services were'} contacted, but none of them received a planted value.`
+      : 'No outside company was contacted at all.';
   }
 
   const grid = recipients.map((recipient) => {
@@ -225,8 +285,14 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
     const g0 = mine[0]!;
     return {
       recipient,
-      vendorLine: g0.identified ? [g0.company === recipient ? '' : g0.company, g0.category].filter(Boolean).join(' · ') : 'Company not identified',
+      vendorLine: [
+        g0.identified ? [g0.company === recipient ? '' : g0.company, g0.category].filter(Boolean).join(' · ') : 'Company not identified',
+        mine.every((g) => g.refererOnly) ? 'only through the Referer header' : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
       category: g0.category,
+      refererOnly: mine.every((g) => g.refererOnly),
       cells: analysis.canaries.map((c) => mine.find((g) => g.canary.name === c.name)?.cell ?? null),
     };
   });
@@ -265,7 +331,7 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
       requests: c.requests,
     }));
 
-  const questions = buildQuestions(groups, companies);
+  const questions = buildQuestions(direct.length ? direct : groups, companies.length ? companies : refererOnly);
 
   return {
     run,
@@ -278,6 +344,9 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
     groups,
     grid,
     firstParty,
+    collectors,
+    refererOnly,
+    ...(stopped ? { stopped } : {}),
     quiet,
     questions,
     when: formatWhen(run.startedAt, run.environment.timezone),

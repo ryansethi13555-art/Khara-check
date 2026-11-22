@@ -300,7 +300,7 @@ async function importCommand(args: Args): Promise<number> {
   const host = new URL(site).hostname.replace(/^www\./, '');
   const name = typeof args.flags.name === 'string' ? args.flags.name : host;
   const canaries: Record<string, unknown> = {};
-  values.forEach((v, i) => (canaries[values.length > 1 ? `search${i + 1}` : 'search'] = { type: 'search-term', value: v, unique, label: values.length > 1 ? `search ${i + 1}` : 'search' }));
+  values.forEach((v, i) => (canaries[values.length > 1 ? `search${i + 1}` : 'search'] = { type: 'search-term', value: v, unique, label: values.length > 1 ? `search for "${v}"` : 'search' }));
   if (email) canaries.email = { type: 'email', value: email, unique };
   // The phone number itself never goes into the journey file, only the variable's name.
   if (phoneEnv) canaries.phone = { type: 'phone', valueFromEnv: phoneEnv, unique };
@@ -314,7 +314,12 @@ async function importCommand(args: Args): Promise<number> {
     throw new Error(`${outDir} already holds an evidence bundle. Evidence is never overwritten: choose another --out folder.`);
   }
   const raw = readFileSync(file);
-  const result = importHar(parseHar(raw.toString('utf8'), path.basename(file)), journey, { fileName: path.basename(file) });
+  const har = parseHar(raw.toString('utf8'), path.basename(file));
+  const { ownHosts, resolveAliases } = await import('./capture/dns.js');
+  const { hostMatches, registrableDomain } = await import('./util/domains.js');
+  const own = registrableDomain(new URL(site).hostname);
+  const dns = args.flags['no-dns'] === true ? {} : await resolveAliases(ownHosts(har.log.entries.map((e) => e.request.url), (h) => hostMatches(h, own)));
+  const result = importHar(har, journey, { fileName: path.basename(file), dns });
   mkdirSync(path.join(outDir, 'capture'), { recursive: true });
   writeFileSync(path.join(outDir, 'capture/original.har'), raw);
   console.log(`\n${bold(journey.name)}`);

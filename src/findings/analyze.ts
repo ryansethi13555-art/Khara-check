@@ -2,7 +2,7 @@ import { formsFor, type CanaryForm } from '../canary/forms.js';
 import { scanSurface, type Surface } from '../canary/matcher.js';
 import { protobufToJson } from '../canary/protobuf.js';
 import { decodeBytes } from '../canary/unfold.js';
-import { identify } from '../decoders/index.js';
+import { collectorShape, identify } from '../decoders/index.js';
 import type {
   Analysis,
   Canary,
@@ -77,8 +77,21 @@ export function analyze(run: RunInfo, canaries: Canary[], records: RequestRecord
   const forms: CanaryForm[] = canaries.flatMap(formsFor);
   const canaryByName = new Map(canaries.map((c) => [c.name, c]));
   const siteHost = hostOf(run.site.origin);
-  const isFirstParty = (host: string): boolean =>
-    host === siteHost || run.site.firstPartyDomains.some((d) => hostMatches(host, d));
+  const ownName = (host: string): boolean => host === siteHost || run.site.firstPartyDomains.some((d) => hostMatches(host, d));
+  /**
+   * The tracking company's server that a site-looking hostname is an alias for, if DNS said so
+   * at capture time. Aliases for hosting and CDN companies are ignored: only a recognised
+   * analytics, advertising or marketing service counts.
+   */
+  const aliasOf = (host: string, record: RequestRecord): string | undefined => {
+    if (!ownName(host)) return undefined;
+    const target = [...(run.dns?.[host] ?? [])].reverse().find((t) => {
+      if (ownName(t)) return false;
+      const who = identify(record, t);
+      return Boolean(who && who.category !== 'other');
+    });
+    return target;
+  };
 
   const leaks: Finding[] = [];
   const firstParty: Finding[] = [];
@@ -88,13 +101,17 @@ export function analyze(run: RunInfo, canaries: Canary[], records: RequestRecord
   for (const record of [...records].sort((a, b) => a.seq - b.seq)) {
     const host = hostOf(record.url);
     if (!host) continue;
-    const party: Recipient['party'] = isFirstParty(host) ? 'first' : 'third';
-    const identified = party === 'third' ? identify(record) : undefined;
+    const alias = aliasOf(host, record);
+    const party: Recipient['party'] = ownName(host) && !alias ? 'first' : 'third';
+    const identified = party === 'third' ? identify(record, alias) : undefined;
+    const collector = party === 'first' ? collectorShape(record) : undefined;
     const recipient: Recipient = {
       host,
-      domain: registrableDomain(host),
+      domain: registrableDomain(alias ?? host),
       party,
       ...(identified ? { vendor: identified.vendor, product: identified.product, category: identified.category } : {}),
+      ...(alias ? { aliasOf: alias } : {}),
+      ...(collector ? { collector } : {}),
     };
     const partyKey = recipient.product ?? recipient.domain;
 

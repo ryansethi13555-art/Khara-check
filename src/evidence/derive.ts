@@ -37,7 +37,7 @@ export function derive(dir: string): Derived {
     const data = readFileSync(path.join(dir, rel));
     return { path: rel, bytes: data.length, sha256: sha256Hex(data) };
   });
-  const { seal } = chainEvidence(entries);
+  const { seal } = chainEvidence(entries, bundle.run.tool.name);
   const analysis = analyze(bundle.run, bundle.canaries, bundle.records);
   const reports = renderReports(bundle.run, analysis, bundle.records, seal);
   return {
@@ -102,7 +102,7 @@ export function verifyBundle(dir: string, opts: { expectedSeal?: string } = {}):
   );
 
   // 2. The chain over those fingerprints gives the recorded seal.
-  const { seal } = chainEvidence(manifest.evidence.map(({ path: p, bytes, sha256 }) => ({ path: p, bytes, sha256 })));
+  const { seal } = chainEvidence(manifest.evidence.map(({ path: p, bytes, sha256 }) => ({ path: p, bytes, sha256 })), manifest.tool?.name);
   add('Evidence seal', seal === manifest.seal, seal === manifest.seal ? seal : `the chain gives ${seal}, but the manifest says ${manifest.seal}`);
   if (opts.expectedSeal) {
     const want = opts.expectedSeal.trim().toLowerCase();

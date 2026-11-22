@@ -12,6 +12,9 @@ export function renderMarkdown(m: ReportModel): string {
   out.push(`- When: ${m.when}`);
   out.push(`- Requests recorded: ${analysis.totals.requests}. Outside services contacted: ${analysis.contacted.length}.`);
   out.push(`- Evidence seal: \`${m.seal}\``, '');
+  if (m.stopped) {
+    out.push(`> **The journey did not finish.** It stopped after "${m.stopped.after}": ${m.stopped.reason} Findings cover only the steps that ran.`, '');
+  }
   if (run.capture === 'imported') {
     out.push('> **Recorded by a person, imported from a HAR file.** A person did this journey in their own browser and saved the network log from its developer tools. Khara Check did not watch the recording: the seal proves nothing has changed since the file was imported, and the planted values are the ones the person says they typed.', '');
   }
@@ -51,6 +54,11 @@ export function renderMarkdown(m: ReportModel): string {
   out.push('');
 
   out.push('## What stayed put', '');
+  if (m.collectors.length) {
+    out.push('Sent to a data collector at the site\'s own address (the browser cannot see where it goes next):', '');
+    for (const c of m.collectors) out.push(`- ${c.host}, shaped like a ${c.name} endpoint: ${c.labels.join(', ')} (${c.requestIds.join(', ')})`);
+    out.push('');
+  }
   if (m.firstParty.length) {
     out.push('Sent to the site itself, which is expected:', '');
     for (const f of m.firstParty) out.push(`- ${cap(f.canary.label)}: ${f.ways.join(', ')} (${f.requests} requests)`);

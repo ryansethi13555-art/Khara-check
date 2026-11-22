@@ -38,6 +38,10 @@ export const DERIVED_FILES = [PATHS.findings, PATHS.reportHtml, PATHS.reportMd];
 
 export const LOG_GENESIS = sha256Hex('khara-check request log v1');
 export const CHAIN_GENESIS = sha256Hex('khara-check evidence chain v1');
+/** Evidence written before the tool was renamed (as "chugli") starts its chains from these. */
+const LEGACY_LOG_GENESIS = sha256Hex('chugli request log v1');
+const LEGACY_CHAIN_GENESIS = sha256Hex('chugli evidence chain v1');
+const chainGenesisFor = (toolName?: string): string => (toolName === 'chugli' ? LEGACY_CHAIN_GENESIS : CHAIN_GENESIS);
 
 export interface ManifestEntry {
   path: string;
@@ -69,10 +73,10 @@ export function encodeRequestLog(records: RequestRecord[]): { text: string; head
 }
 
 export function decodeRequestLog(text: string): { records: RequestRecord[]; head: string; brokenAt?: number } {
-  let prev = LOG_GENESIS;
   const records: RequestRecord[] = [];
   let brokenAt: number | undefined;
   const lines = text.split('\n').filter((l) => l !== '');
+  let prev = lines[0]?.includes(`"prev":"${LEGACY_LOG_GENESIS}"`) ? LEGACY_LOG_GENESIS : LOG_GENESIS;
   lines.forEach((line, i) => {
     const parsed = JSON.parse(line) as RequestRecord & { prev: string };
     if (parsed.prev !== prev && brokenAt === undefined) brokenAt = i + 1;
@@ -107,8 +111,8 @@ function entry(dir: string, rel: string): ManifestEntry {
   return { path: rel, bytes: data.length, sha256: sha256Hex(data) };
 }
 
-export function chainEvidence(entries: ManifestEntry[]): { evidence: Manifest['evidence']; seal: string } {
-  let link = CHAIN_GENESIS;
+export function chainEvidence(entries: ManifestEntry[], toolName?: string): { evidence: Manifest['evidence']; seal: string } {
+  let link = chainGenesisFor(toolName);
   const evidence = entries.map((e) => {
     link = sha256Hex(`${link}\n${e.path}\n${e.sha256}`);
     return { ...e, chain: link };
@@ -140,7 +144,7 @@ export function serializeAnalysis(analysis: Analysis): string {
 
 /** Seals the bundle: hashes every evidence file, chains the hashes, records the derived files. */
 export function writeManifest(dir: string, run: RunInfo): Manifest {
-  const { evidence, seal } = chainEvidence(evidenceFiles(dir).map((f) => entry(dir, f)));
+  const { evidence, seal } = chainEvidence(evidenceFiles(dir).map((f) => entry(dir, f)), run.tool.name);
   const log = decodeRequestLog(readFileSync(path.join(dir, PATHS.requests), 'utf8'));
   const manifest: Manifest = {
     schema: 1,

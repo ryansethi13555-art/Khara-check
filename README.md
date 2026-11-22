@@ -4,7 +4,7 @@
 
 You give it a website and a short script of what a customer does there: search for a medicine, log in with a phone number. It drives a real browser, types test values that exist nowhere else, records every request the page sends, and finds each place those values left the site. It sees through URL encoding, base64, compression and the SHA-256 hashing that Google, Meta and Reddit use to match a phone number or email to a real person. Then it seals the evidence and writes a report anyone can read:
 
-> The page tried to send the lab test search "HIV test fsgpfcf" to Reddit (Reddit Pixel) as readable text, 0.06 seconds after the step "Pressed Search". It travelled as the names of the products on the page.
+> The page tried to send the lab test search "HIV test fsgpfcf" as readable text to Reddit (Reddit Pixel), 0.06 seconds after the step "Pressed Search". It travelled as the names of the products on the page.
 
 ![A Khara Check report: which companies received the search, the phone number and the email address](docs/report-preview.png)
 
@@ -150,15 +150,16 @@ steps:
 
 Steps: `goto`, `type`, `fill`, `press`, `click`, `check`, `select`, `waitFor`, `wait`, `screenshot`, `snapshot`, `handoff`. Add `label:` to any step to control how it reads in the report.
 
-Each `{{name}}` is replaced by the planted value. Search terms get a random seven-letter marker (`metformin 500 kqzvtbn`), so the value exists only in this run. Emails use `example.com`, which is reserved and never receives mail. If a site rejects the marker, set `unique: false` and the report labels the finding "common", which is weaker evidence.
+Each `{{name}}` is replaced by the planted value. Search terms get a random seven-letter marker (`metformin 500 kqzvtbn`), so the value exists only in this run. Emails use `example.com`, which is reserved and never receives mail. If a site rejects the marker, set `unique: false` and the report labels the finding "common", which is weaker evidence. A common value is matched only as a whole word, and only in forms that keep its words apart, so "HIV" does not match inside a random token and "pregnancy test kit" does not match a product image called `pregnancy_test_kit.jpg`.
 
 ## What the evidence proves
 
 * **A specific thing reached a specific company.** Tracker scanners tell you which trackers a page loads. Khara Check tells you that the medicine you searched for reached Meta, in which field, in what form, how long after you pressed Search, and which script sent it.
-* **It sees through disguises.** For every planted value it prepares dozens of forms (lower case, `+91` prefixes, hyphen-joined, SHA-256, MD5, base64 at every byte alignment) and peels each request apart layer by layer: URL parameters, JSON, base64 inside JSON inside a form field, gzip, brotli, LZ-string, JWT, multipart, protobuf. Every hit records the path it took, for example `JSON field "d" → base64-decoded → JSON field "evtData.Term"`, so a reader can follow the proof by hand.
+* **It sees through disguises.** For every planted value it prepares up to 45 forms (lower case, `+91` prefixes, hyphen-joined, SHA-256, MD5, base64 at every byte alignment) and peels each request apart layer by layer: URL parameters, JSON, base64 inside JSON inside a form field, gzip, brotli, LZ-string, JWT, multipart, protobuf. Every hit records the path it took, for example `JSON field "d" → base64-decoded → JSON field "evtData.Term"`, so a reader can follow the proof by hand.
 * **It knows Indian martech.** Alongside Google, Meta, Reddit, Criteo and Taboola it decodes CleverTap, MoEngage, WebEngage and Netcore, the engagement platforms behind the marketing messages of most large Indian apps. Forty more companies are recognised by domain.
 * **Anyone can re-check it.** Each run is a folder: every request, header and body, screenshots, the exact script, and a SHA-256 chain that seals it all into one value. The analysis is deterministic, so `khara-check verify` reproduces the findings byte for byte, without a browser or the internet.
-* **It does not accuse.** Values sent to the site itself are listed separately, as expected. A partial match is labelled "in part". The report says "in this run", never "always", and lists what it cannot see. Questions under India's Digital Personal Data Protection Act, 2023 are put as questions for the site, not conclusions.
+* **It sees collectors that hide behind the site's name.** Some sites send data to an address like `events.pharmacy.in` that is really another company's server. Khara Check looks up where the site's own hostnames point when it records a run, and counts an alias for a tracking service as that service. Without that record, it still flags requests shaped like a RudderStack, Segment, Snowplow or server-side Google tagging endpoint, and says the browser cannot see where they go next.
+* **It does not accuse.** Values sent to the site itself are listed separately, as expected. Companies that received a value only because the browser passed on the page address while loading a file (the Referer header) are listed in their own tier. A partial match is labelled "in part". A run that was blocked or stopped says so in its headline instead of reading as clean. The report says "in this run", never "always", and lists what it cannot see. Questions under India's Digital Personal Data Protection Act, 2023 are put as questions for the site, not conclusions.
 
 The full standard of evidence is in [docs/METHOD.md](docs/METHOD.md).
 
@@ -214,7 +215,7 @@ The suite plants values in 25 wrappers across 25 random seeds and checks every o
 | f8 | Double URL encoding and changed letter case | Google Ads, Criteo and GA4, readable |
 | r1 | The three Report 1 patterns after a login | Reddit, Google Analytics and Google Ads, as in the table above |
 
-It also checks that `verify` catches a one-character change to the capture and a hand-edited finding; that `attach` finds the same leaks when a person drives a separately started browser; that an imported HAR file gives the same findings as the watched run; that a bot check stops an unwatched run and is handed to a person in a watched one; and that the consent comparison and fleet scorecard name the right companies. 86 tests in all, run on every push.
+It also checks that `verify` catches a one-character change to the capture and a hand-edited finding; that `attach` finds the same leaks when a person drives a separately started browser; that an imported HAR file gives the same findings as the watched run; that a bot check stops an unwatched run and is handed to a person in a watched one; and that the consent comparison and fleet scorecard name the right companies. A further set reproduces, with invented data, what the first field test on real health sites showed: a collector hidden behind the site's own address, Referer-only receipts, a blocked run, and short common words such as "HIV". 96 tests in all, run on every push.
 
 ## Responsible use
 

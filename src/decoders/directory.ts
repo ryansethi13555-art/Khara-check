@@ -44,6 +44,8 @@ export const DIRECTORY: { domains: string[]; vendor: string; product: string; ca
   { domains: ['freshchat.com', 'freshworks.com', 'freshdesk.com'], vendor: 'Freshworks', product: 'Freshworks', category: 'customer-engagement' },
   { domains: ['zopim.com', 'zdassets.com', 'zendesk.com'], vendor: 'Zendesk', product: 'Zendesk', category: 'customer-engagement' },
   { domains: ['truecaller.com'], vendor: 'Truecaller', product: 'Truecaller', category: 'other' },
+  // Google Analytics script files (analytics.js, ga.js): the hits themselves are decoded by the GA4 decoder.
+  { domains: ['google-analytics.com'], vendor: 'Google', product: 'Google Analytics 4', category: 'analytics' },
   { domains: ['gstatic.com', 'googleapis.com', 'google.com', 'google.co.in', 'googleusercontent.com'], vendor: 'Google', product: 'Google services', category: 'other' },
   { domains: ['youtube.com', 'ytimg.com'], vendor: 'Google', product: 'YouTube', category: 'other' },
   { domains: ['facebook.com', 'fbcdn.net', 'instagram.com'], vendor: 'Meta', product: 'Meta', category: 'advertising' },

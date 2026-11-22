@@ -83,6 +83,8 @@ table{border-collapse:collapse;width:100%}
 .steps li.handoff::before{content:"\\270B";border-color:var(--green);font-size:11px}
 .steps li.bad::before{border-color:var(--red);background:var(--red);color:#fff}
 .steps .by{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--green);background:var(--green-bg);padding:3px 7px;border-radius:999px;margin-left:6px}
+.steps .by.stop{color:#fff;background:var(--red)}
+.notice.stop{border-left-color:var(--red)}
 .steps .t{color:var(--muted);font:12.5px var(--mono);margin-left:8px}
 .steps .then{margin:6px 0 0;font-size:14px;color:var(--muted)}
 .steps .then b{color:var(--red);font-weight:600}
@@ -215,7 +217,8 @@ export function renderHtml(model: ReportModel & { requestUrl: (id: string) => st
   ${run.capture === 'imported' ? `<p class="notice person"><b>Recorded by a person, imported from a HAR file.</b> A person did this journey in their own browser and saved the network log from its developer tools. Khara Check did not watch the recording: the seal proves nothing has changed since the file was imported, and the planted values are the ones the person says they typed.</p>` : ''}
   ${run.capture === 'attached' ? `<p class="notice person"><b>Done by a person.</b> A person did this journey by hand in their own browser. Khara Check only listened to the browser's network log: it did not click, type or run anything in the page.</p>` : ''}
   ${m.sandbox ? `<p class="notice"><b>Practice run.</b> This ran in Khara Check's sandbox against a site served from this machine. Requests to outside companies were recorded and then answered locally. Nothing reached any real company, and the names below show where the page was trying to send data.</p>` : ''}
-  ${run.steps.some((s) => !s.ok) ? `<p class="notice"><b>The journey did not finish.</b> ${esc(run.steps.find((s) => !s.ok)?.error ?? '')} Findings below cover the steps that ran.</p>` : ''}
+  ${m.stopped ? `<p class="notice stop"><b>The journey did not finish.</b> It stopped after "${esc(m.stopped.after)}": ${esc(m.stopped.reason)} Findings below cover only the steps that ran, so they cannot show what the site does after that point.</p>` : ''}
+  ${m.collectors.length ? `<p class="notice"><b>A data collector at the site's own address.</b> ${m.collectors.map((c) => `${esc(cap(c.labels.map((l) => `the ${l}`).join(' and ')))} went to ${esc(c.host)}, which has the shape of a ${esc(c.name)} endpoint (${c.requests} ${c.requests === 1 ? 'request' : 'requests'}: ${esc(c.requestIds.join(', '))}).`).join(' ')} A service like this runs at the site's own address but collects data for analytics or advertising, and the browser cannot see where it sends the data next.</p>` : ''}
 </div>`;
 
   const grid = m.groups.length
@@ -259,7 +262,7 @@ export function renderHtml(model: ReportModel & { requestUrl: (id: string) => st
           hits.length ? `<p class="then">Then data went out to <b>${esc(names.join(', '))}</b></p>` : ''
         }${!s.ok ? `<p class="then">${esc(s.error ?? 'This step failed.')}</p>` : ''}</li>${(run.handoffs ?? [])
           .filter((h) => h.index === s.index)
-          .map((h) => `<li class="${h.ok ? 'handoff' : 'bad'}">${esc(h.label)} <span class="by">${h.ok ? 'done by a person' : 'stopped'}</span><span class="t">+${((h.startedAt - t0) / 1000).toFixed(1)}s</span>${h.error ? `<p class="then">${esc(h.error)}</p>` : ''}</li>`)
+          .map((h) => `<li class="${h.ok ? 'handoff' : 'bad'}">${esc(h.label)} <span class="by${h.ok ? '' : ' stop'}">${h.ok ? 'done by a person' : 'stopped'}</span><span class="t">+${((h.startedAt - t0) / 1000).toFixed(1)}s</span>${h.error ? `<p class="then">${esc(h.error)}</p>` : ''}</li>`)
           .join('')}`;
       })
       .join('\n    ')}

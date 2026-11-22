@@ -1,4 +1,4 @@
-import { allParams, fieldHead, get, pickFields, type Decoder, type DecoderInput } from './types.js';
+import { allParams, fieldHead, get, pickFields, type Decoder, type DecoderInput, inAddress } from './types.js';
 
 const GA4_PARAMS: Record<string, string> = {
   dl: 'address of the page the customer is on',
@@ -41,7 +41,7 @@ export const ga4: Decoder = {
     if (ep) return ep[1] === 'search_term' ? 'the search text of a "view_search_results" event' : `event detail "${ep[1]}"`;
     const up = /^up\.(.+)$/.exec(head);
     if (up) return `customer property "${up[1]}"`;
-    if (head === 'dl') return rest.length ? `the page address, which contains it (parameter "${rest.join(' › ')}")` : 'the page address';
+    if (head === 'dl') return inAddress(rest);
     if (head === 'dr') return 'the address of the previous page, which contains it';
     if (head === 'dt') return 'the page title';
     if (head === 'dp') return 'the page path';
@@ -50,7 +50,7 @@ export const ga4: Decoder = {
 };
 
 const isAdsPath = (i: DecoderInput): boolean =>
-  /^\/pagead\/|^\/ccm\/|^\/activity|^\/ddm\/|^\/td\//.test(i.path) ||
+  /^\/pagead\/|^\/ccm\/|^\/activity|^\/ddm\/|^\/td\/|^\/rmkt\/|^\/measurement\/(1p-)?conversion|^\/gmp\/conversion/.test(i.path) ||
   /(^|\.)doubleclick\.net$/.test(i.host) ||
   /(^|\.)googleadservices\.com$/.test(i.host) ||
   /(^|\.)googlesyndication\.com$/.test(i.host);
@@ -95,7 +95,7 @@ export const googleAds: Decoder = {
     const { head, rest } = fieldHead(field);
     if (head === 'data') return rest.length ? `event detail "${rest.join(' › ')}"` : 'the event details';
     if (head === 'em') return 'hashed customer details sent for "enhanced conversions", so Google can link the visit to a Google account';
-    if (head === 'url') return rest.length ? `the page address, which contains it (parameter "${rest.join(' › ')}")` : 'the page address';
+    if (head === 'url') return inAddress(rest);
     if (head === 'ref') return 'the address of the previous page, which contains it';
     if (head === 'tiba') return 'the page title';
     if (/^u\d+$/.test(head)) return `custom Floodlight variable "${head}"`;

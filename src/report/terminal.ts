@@ -25,10 +25,12 @@ export function summaryText(m: ReportModel): string {
         })
         .filter(Boolean)
         .join(dim('  ·  '));
-      lines.push(`  ${row.recipient.padEnd(width)}  ${cells}`);
+      lines.push(`  ${row.recipient.padEnd(width)}  ${cells}${row.refererOnly ? dim('  (Referer header only)') : ''}`);
     }
     lines.push('');
   }
+  for (const c of m.collectors) lines.push(yellow(`  Collector at the site's own address: ${c.host} (${c.name}) got ${c.labels.join(', ')}`));
+  if (m.stopped) lines.push(red(`  The journey stopped after "${m.stopped.after}". Findings cover only the steps that ran.`));
   if (m.quiet.length) lines.push(dim(`  Contacted, sent nothing planted: ${m.quiet.map((q) => q.name).join(', ')}`));
   if (m.firstParty.length) lines.push(dim(`  Also sent to the site itself, as expected: ${m.firstParty.map((f) => f.canary.label).join(', ')}`));
   if (m.sandbox) lines.push(dim('  Practice run: nothing reached any real company.'));

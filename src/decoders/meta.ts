@@ -1,4 +1,4 @@
-import { allParams, fieldHead, get, pickFields, type Decoder } from './types.js';
+import { allParams, fieldHead, get, pickFields, type Decoder, inAddress } from './types.js';
 
 const USER_DATA: Record<string, string> = {
   em: 'email address',
@@ -51,7 +51,7 @@ export const metaPixel: Decoder = {
     }
     const ud = /^ud(?:ff)?\[(.+)\]$/.exec(head);
     if (ud) return `the customer's ${USER_DATA[ud[1]!] ?? ud[1]}, sent for "advanced matching" so Meta can link the visit to a Facebook or Instagram account`;
-    if (head === 'dl') return rest.length ? `the page address, which contains it (parameter "${rest.join(' › ')}")` : 'the page address';
+    if (head === 'dl') return inAddress(rest);
     if (head === 'rl') return 'the address of the previous page, which contains it';
     return undefined;
   },

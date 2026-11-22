@@ -20,8 +20,17 @@ interface NodeHit {
 const RANK: Record<string, number> = { 'plain:full': 0, 'encoded:full': 1, 'hash:full': 2, 'plain:marker': 3 };
 const rank = (f: CanaryForm): number => RANK[`${f.kind}:${f.exactness}`] ?? 9;
 
+const WORD = /[\p{L}\p{N}]/u;
+
 function find(text: string, lower: string, form: CanaryForm): number {
-  return form.caseSensitive ? text.indexOf(form.needle) : lower.indexOf(form.needle);
+  const hay = form.caseSensitive ? text : lower;
+  if (!form.wholeWord) return hay.indexOf(form.needle);
+  for (let at = hay.indexOf(form.needle); at !== -1; at = hay.indexOf(form.needle, at + 1)) {
+    const before = at > 0 ? hay[at - 1]! : '';
+    const after = hay[at + form.needle.length] ?? '';
+    if (!WORD.test(before) && !WORD.test(after)) return at;
+  }
+  return -1;
 }
 
 /**

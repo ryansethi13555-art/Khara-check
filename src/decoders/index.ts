@@ -36,9 +36,14 @@ export interface Identified {
 }
 
 /** Says who a request went to and, where a decoder exists, what it carried. */
-export function identify(record: RequestRecord): Identified | undefined {
-  const input = toInput(record);
-  if (!input) return undefined;
+/**
+ * Names the company behind a request. `host` overrides the request's own hostname, for a
+ * site-looking hostname that DNS shows is an alias for another company's server.
+ */
+export function identify(record: RequestRecord, host?: string): Identified | undefined {
+  const parsed = toInput(record);
+  if (!parsed) return undefined;
+  const input = host ? { ...parsed, host } : parsed;
   for (const decoder of DECODERS) {
     if (!decoder.domains.some((d) => hostMatches(input.host, d))) continue;
     if (decoder.matches && !decoder.matches(input)) continue;
@@ -68,4 +73,29 @@ export function identify(record: RequestRecord): Identified | undefined {
   }
   const entry = DIRECTORY.find((e) => e.domains.some((d) => hostMatches(input.host, d)));
   return entry ? { vendor: entry.vendor, product: entry.product, category: entry.category } : undefined;
+}
+
+/**
+ * Data collection services that a site can run at its own address (a custom domain or a
+ * server-side tag manager). A request with one of these shapes is still sent to the site,
+ * but what happens to the data next is decided on a server the browser cannot see.
+ */
+export function collectorShape(record: RequestRecord): { vendor: string; product: string } | undefined {
+  const input = toInput(record);
+  if (!input || input.record.method === 'OPTIONS') return undefined;
+  const { path, bodyText, query } = input;
+  const headers = record.requestHeaders;
+  if (/^\/v1\/(page|track|identify|batch|screen|group|alias)$/.test(path) && (headers.anonymousid !== undefined || /rudder/i.test(bodyText))) {
+    return { vendor: 'RudderStack', product: 'RudderStack data plane' };
+  }
+  if (/^\/v1\/(t|p|i|g|a|s|b|track|page|identify|batch)$/.test(path) && /"library"\s*:\s*\{\s*"name"\s*:\s*"analytics(\.js|-next)/.test(bodyText)) {
+    return { vendor: 'Segment', product: 'Segment' };
+  }
+  if (/\/g\/collect$/.test(path) && query.some(([k, v]) => k === 'tid' && /^G-/.test(v)) && query.some(([k, v]) => k === 'v' && v === '2')) {
+    return { vendor: 'Google', product: 'Google Analytics 4 (server-side tagging)' };
+  }
+  if (/\/com\.snowplowanalytics\.snowplow\/tp2$|^\/i$/.test(path) && /snowplow|"schema"\s*:\s*"iglu:/.test(bodyText + query.map(([, v]) => v).join(' '))) {
+    return { vendor: 'Snowplow', product: 'Snowplow' };
+  }
+  return undefined;
 }

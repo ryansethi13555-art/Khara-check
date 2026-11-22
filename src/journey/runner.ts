@@ -6,7 +6,8 @@ import { Recorder } from '../capture/recorder.js';
 import { installSandbox, SANDBOX_BROWSER_ARGS } from '../capture/sandbox.js';
 import { serveFolder, type LocalSite } from '../serve/static-server.js';
 import type { Canary, RequestRecord, RunInfo, StepRecord } from '../types.js';
-import { hostOf, registrableDomain } from '../util/domains.js';
+import { hostMatches, hostOf, registrableDomain } from '../util/domains.js';
+import { ownHosts, resolveAliases } from '../capture/dns.js';
 import { cryptoRng, seededRng } from '../util/random.js';
 import { PLAYWRIGHT_VERSION, TOOL } from '../version.js';
 import { detectChallenge } from './challenge.js';
@@ -211,6 +212,9 @@ export async function runJourney(journey: Journey, opts: RunOptions): Promise<Ru
     }
 
     const siteHost = hostOf(origin);
+    const ownDomains = [...new Set([registrableDomain(siteHost), ...journey.site.firstParty.map((d) => d.toLowerCase())])];
+    // Live runs record where the site's own hostnames really point, to catch collectors disguised as the site.
+    const dnsAliases = sandbox ? {} : await resolveAliases(ownHosts(records.map((r) => r.url), (h) => ownDomains.some((d) => hostMatches(h, d))));
     const run: RunInfo = {
       tool: TOOL,
       journeyName: journey.name,
@@ -240,6 +244,7 @@ export async function runJourney(journey: Journey, opts: RunOptions): Promise<Ru
       steps,
       ...(handoffs.length ? { handoffs } : {}),
       notes,
+      ...(Object.keys(dnsAliases).length ? { dns: dnsAliases } : {}),
     };
     await context.close();
     return { run, canaries, records, cookies, ...(failure ? { failure } : {}) };

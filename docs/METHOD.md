@@ -36,8 +36,17 @@ Every hit records the **decode path**: the exact sequence of layers from the raw
 A finding needs all of these:
 
 1. **A recorded request.** Every finding names the request (`r0023`) in the hash-chained capture log. A finding without a request is a bug.
-2. **A third-party recipient.** The recipient's registrable domain (eTLD+1, from the Public Suffix List) differs from the site's and from any domain the journey declares as the site's own. Requests to the site itself are listed separately, as expected behaviour.
+2. **A third-party recipient.** The recipient's registrable domain (eTLD+1, from the Public Suffix List) differs from the site's and from any domain the journey declares as the site's own. Requests to the site itself are listed separately, as expected behaviour. One exception: when a hostname that looks like the site's own is a DNS alias (CNAME) for a recognised analytics, advertising or marketing service, it is counted as that service. Live runs look up these aliases when the capture is made and store them in `run.json`, so the analysis stays a pure function of the folder. Aliases for hosting and CDN companies are ignored.
 3. **The planted value inside it**, in one of the forms above. A match on the unique marker alone is reported as "in part", never as a full match.
+
+Two further tiers are reported separately and never mixed into the headline count:
+
+* **Collectors at the site's own address.** A request to the site itself that has the shape of a known data collection service (RudderStack, Segment, Snowplow, or the Google Analytics protocol used by server-side tagging) is flagged. The browser cannot see where such a collector sends the data next, so the report says so instead of calling it either a leak or expected.
+* **Referer only.** A company that received a value only in the `Referer` header, because the browser passed on the full page address while loading one of its files, is listed in its own tier. The disclosure is real, and it is caused by the site's referrer policy, but it is a different act from a tracker putting the value into an event.
+
+**Common values.** A value without a unique marker (for example a plain search for "HIV" in an imported recording) is matched only as a whole word, so that it cannot match inside a random token, and only in forms that keep its words apart, so that "pregnancy test kit" does not match a product image named `pregnancy_test_kit.jpg`. Findings based on it are labelled "common". Search values as short as three characters are accepted on these terms; emails and phone numbers need six.
+
+**Runs that stop.** If a step fails or a bot check is not cleared, the report's headline says the run stopped and that it does not show what the site does after that point. A blocked run never reads as a clean result.
 
 Each finding also records the time after the customer's action, the script that started the request (from the browser's own call stack), whether the request was delivered, and what the vendor decoder knows about the call ("Meta Pixel, event Search").
 
