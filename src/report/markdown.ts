@@ -61,12 +61,12 @@ export function renderMarkdown(m: ReportModel): string {
   }
   if (m.firstParty.length) {
     out.push('Sent to the site itself, which is expected:', '');
-    for (const f of m.firstParty) out.push(`- ${cap(f.canary.label)}: ${f.ways.join(', ')} (${f.requests} requests)`);
+    for (const f of m.firstParty) out.push(`- ${cap(f.canary.label)}: ${f.ways.join(', ')} (${f.requests} ${f.requests === 1 ? 'request' : 'requests'})`);
     out.push('');
   }
   if (m.quiet.length) {
     out.push('Contacted, but sent nothing planted:', '');
-    for (const q of m.quiet) out.push(`- ${q.name} (${q.category}, ${q.requests} requests)`);
+    for (const q of m.quiet) out.push(`- ${q.name} (${q.category}, ${q.requests} ${q.requests === 1 ? 'request' : 'requests'})`);
     out.push('');
   }
 

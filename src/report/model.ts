@@ -1,3 +1,4 @@
+import { hostOf, registrableDomain } from '../util/domains.js';
 import type { Analysis, Canary, Finding, RunInfo, Sighting, VendorCategory } from '../types.js';
 
 /** Everything the HTML, Markdown and terminal reports need, worked out once. */
@@ -11,12 +12,14 @@ export interface ReportModel {
   companies: string[];
   groups: LeakGroup[];
   /** Rows of the "who received what" grid. */
-  grid: { recipient: string; vendorLine: string; category: string; refererOnly: boolean; cells: (Cell | null)[] }[];
+  grid: { recipient: string; vendorLine: string; category: string; refererOnly: boolean; lookalike: boolean; cells: (Cell | null)[] }[];
   firstParty: { canary: Canary; requests: number; ways: string[] }[];
   /** Data collectors at the site's own address (RudderStack, server-side tagging): what they received. */
   collectors: { name: string; host: string; labels: string[]; requests: number; requestIds: string[] }[];
-  /** Companies that received a value only through the Referer header, not in a tracker's own data. */
+  /** Services that received a value only through the Referer header, not in a tracker's own data. */
   refererOnly: string[];
+  /** Unrecognised recipients whose domain carries the site's own name (apollo247.in for apollopharmacy.in): possibly the same owner, so not counted. */
+  lookalikes: string[];
   /** Set when the journey stopped before its last step (a failed step or a bot check nobody cleared). */
   stopped?: { after: string; reason: string };
   quiet: { name: string; category: string; requests: number; purpose?: string }[];
@@ -46,6 +49,15 @@ export interface LeakGroup {
   seconds: string;
   /** True when every sighting is the Referer header: the browser passed on the page address while loading a file. */
   refererOnly: boolean;
+  /** True for an unrecognised recipient whose domain shares the start of the site's own name. */
+  lookalike: boolean;
+}
+
+/** Length of the common start of two names. */
+function sharedStart(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
 }
 
 const CATEGORY: Record<VendorCategory, string> = {
@@ -150,6 +162,7 @@ export function formatWhen(ms: number, timezone: string): string {
 export function buildModel(run: RunInfo, analysis: Analysis, seal: string): ReportModel {
   const sandbox = run.mode === 'sandbox';
   const canaryByName = new Map(analysis.canaries.map((c) => [c.name, c]));
+  const siteLabel = registrableDomain(hostOf(run.site.origin)).split('.')[0] ?? '';
 
   // Group findings: one group per (recipient, canary).
   const byKey = new Map<string, Finding[]>();
@@ -200,6 +213,7 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
       stepLabel,
       seconds: seconds(first.msAfterStep),
       refererOnly,
+      lookalike: !identified && sharedStart(first.recipient.domain.split('.')[0] ?? '', siteLabel) >= 5,
     };
   });
 
@@ -215,11 +229,14 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
       Number(groups.find((g) => g.recipient === b)!.identified) - Number(groups.find((g) => g.recipient === a)!.identified) ||
       score(b) - score(a),
   );
-  const direct = groups.filter((g) => !g.refererOnly);
-  const companies = [...new Set(recipients.filter((r) => !onlyByReferer(r)).map((r) => groups.find((g) => g.recipient === r)!.company))];
-  const refererOnly = [
-    ...new Set(recipients.filter(onlyByReferer).map((r) => groups.find((g) => g.recipient === r)!.company)),
-  ].filter((c) => !companies.includes(c));
+  const isLookalike = (r: string): boolean => groups.find((g) => g.recipient === r)!.lookalike;
+  const direct = groups.filter((g) => !g.refererOnly && !g.lookalike);
+  const companies = [
+    ...new Set(recipients.filter((r) => !onlyByReferer(r) && !isLookalike(r)).map((r) => groups.find((g) => g.recipient === r)!.company)),
+  ];
+  // Named by service, so that Google Tag Manager is listed even when Google Ads is already counted.
+  const refererOnly = recipients.filter((r) => onlyByReferer(r) && !isLookalike(r));
+  const lookalikes = recipients.filter(isLookalike);
   const typed = list(analysis.canaries.filter((c) => direct.some((g) => g.canary.name === c.name)).map((c) => `the ${c.label}`));
 
   // Collectors at the site's own address: the browser cannot see where they send the data next.
@@ -257,19 +274,25 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
   const refererNote = refererOnly.length
     ? ` ${refererOnly.length} more ${refererOnly.length === 1 ? 'service' : 'services'} (${list(refererOnly)}) received it only in the page address the browser passes on when it loads a file (the Referer header).`
     : '';
+  const lookalikeNote = lookalikes.length
+    ? ` ${list(lookalikes)} also received it but ${lookalikes.length === 1 ? 'is' : 'are'} not counted: ${lookalikes.length === 1 ? 'its name is' : 'their names are'} like the site's own, so ${lookalikes.length === 1 ? 'it' : 'they'} may belong to the same owner. Declare ${lookalikes.length === 1 ? 'it' : 'them'} under site.firstParty in the journey if so.`
+    : '';
   if (direct.length) {
     const n = companies.length;
     headline = sandbox
       ? `This page tried to tell ${n} ${n === 1 ? 'company' : 'companies'} what the customer typed.`
       : `${n} ${n === 1 ? 'company was' : 'companies were'} sent what the customer typed.`;
-    subhead = `${cap(typed)} ${sandbox ? 'went out' : 'went'} to ${list(companies)}.${refererNote}${collectors.length ? ` Also, ${collectorLine}, at the site's own address.` : ''}`;
+    subhead = `${cap(typed)} ${sandbox ? 'went out' : 'went'} to ${list(companies)}.${refererNote}${collectors.length ? ` Also, ${collectorLine}, at the site's own address.` : ''}${lookalikeNote}`;
   } else if (refererOnly.length) {
     const n = refererOnly.length;
-    headline = `The page address passed what the customer typed to ${n} ${n === 1 ? 'company' : 'companies'}.`;
-    subhead = `No outside company received it in its own data, but the site lets the browser send the full page address, including what was typed, to ${list(refererOnly)} when the page loads their files (the Referer header).${collectors.length ? ` Also, ${collectorLine}.` : ''}`;
+    headline = `The page address passed what the customer typed to ${n} outside ${n === 1 ? 'service' : 'services'}.`;
+    subhead = `No outside company received it in its own data, but the site lets the browser send the full page address, including what was typed, to ${list(refererOnly)} when the page loads their files (the Referer header).${collectors.length ? ` Also, ${collectorLine}.` : ''}${lookalikeNote}`;
   } else if (collectors.length) {
     headline = 'Nothing went straight to an outside company, but a data collector at the site\'s own address received what the customer typed.';
     subhead = `${cap(collectorLine)}. It sits at the site's own address, so the browser cannot see which companies it passes the data on to.`;
+  } else if (lookalikes.length && !stopped) {
+    headline = 'Nothing went to a recognised outside company, but a domain with a name like the site\'s own received what the customer typed.';
+    subhead = lookalikeNote.trim();
   } else if (stopped) {
     headline = 'This run stopped early, so it does not show what the site does.';
     subhead = `It stopped after "${stopped.after}": ${stopped.reason.replace(/\.$/, '')}. Nothing planted left the site before that point.`;
@@ -288,11 +311,13 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
       vendorLine: [
         g0.identified ? [g0.company === recipient ? '' : g0.company, g0.category].filter(Boolean).join(' · ') : 'Company not identified',
         mine.every((g) => g.refererOnly) ? 'only through the Referer header' : '',
+        g0.lookalike ? "name like the site's own, not counted" : '',
       ]
         .filter(Boolean)
         .join(' · '),
       category: g0.category,
       refererOnly: mine.every((g) => g.refererOnly),
+      lookalike: g0.lookalike,
       cells: analysis.canaries.map((c) => mine.find((g) => g.canary.name === c.name)?.cell ?? null),
     };
   });
@@ -346,6 +371,7 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
     firstParty,
     collectors,
     refererOnly,
+    lookalikes,
     ...(stopped ? { stopped } : {}),
     quiet,
     questions,

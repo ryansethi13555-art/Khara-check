@@ -62,6 +62,15 @@ describe('common search words', () => {
     expect(found(hiv, 'https://t.example/archive/page')).toBe(false);
   });
 
+  it('does not count a common word that is part of a test page name, but does count it standing alone', () => {
+    const hiv = common('HIV');
+    expect(found(hiv, 'https://www.lab.example/delhi/tests/hiv-1-2-antibody-test')).toBe(false);
+    expect(found(hiv, 'https://t.example/c?u=/package/gurgaon/hiv-screening-package')).toBe(false);
+    expect(found(hiv, 'https://t.example/c?dl=' + encodeURIComponent('https://www.lab.example/search?q=HIV'))).toBe(true);
+    // A page title still holds the bare word: a common value cannot tell typed text from page text.
+    expect(found(hiv, 'https://t.example/c?og_title=' + encodeURIComponent('HIV 1 & 2 Antibody Test'))).toBe(true);
+  });
+
   it('does not match a common term joined into a product file name', () => {
     const kit = common('pregnancy test kit');
     expect(found(kit, 'https://cdn.example/images/prega_news_pregnancy_test_kit_1.jpg')).toBe(false);
@@ -124,6 +133,30 @@ describe('report honesty', () => {
     expect(m.headline).toBe('1 company was sent what the customer typed.');
     expect(m.refererOnly).toEqual(['vendor-sample.example']);
     expect(m.subhead).toMatch(/only in the page address the browser passes on/);
+  });
+
+  it('counts Referer-only services by service, so a second Google product is not dropped from the count', () => {
+    const r = run();
+    const a = analyze(r, [search], [
+      req(`https://analytics.google.com/g/collect?v=2&tid=G-1&en=page_view&dl=${encodeURIComponent(page)}`),
+      req('https://www.googletagmanager.com/gtm.js?id=GTM-1', { requestHeaders: { referer: page } }),
+      req('https://cdn.vendor-sample.example/lib.js', { requestHeaders: { referer: page } }),
+    ]);
+    const m = buildModel(r, a, 'seal');
+    expect(m.refererOnly).toHaveLength(2);
+    expect(m.subhead).toMatch(/ 2 more services \(/);
+  });
+
+  it('does not count a domain carrying the site\'s own name, and says how to declare it', () => {
+    const r = run();
+    const a = analyze(r, [search], [
+      req(`https://analytics.google.com/g/collect?v=2&tid=G-1&en=page_view&dl=${encodeURIComponent(page)}`),
+      req(`https://apigateway.pharmacy247.example/search?query=${encodeURIComponent(search.value)}`),
+    ]);
+    const m = buildModel(r, a, 'seal');
+    expect(m.headline).toBe('1 company was sent what the customer typed.');
+    expect(m.lookalikes).toEqual(['pharmacy247.example']);
+    expect(m.subhead).toMatch(/may belong to the same owner/);
   });
 
   it('says a blocked run proves nothing, instead of reading as clean', () => {

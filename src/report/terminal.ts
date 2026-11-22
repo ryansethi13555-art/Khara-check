@@ -25,7 +25,7 @@ export function summaryText(m: ReportModel): string {
         })
         .filter(Boolean)
         .join(dim('  ·  '));
-      lines.push(`  ${row.recipient.padEnd(width)}  ${cells}${row.refererOnly ? dim('  (Referer header only)') : ''}`);
+      lines.push(`  ${row.recipient.padEnd(width)}  ${cells}${row.refererOnly ? dim('  (Referer header only)') : ''}${row.lookalike ? dim("  (name like the site's own, not counted)") : ''}`);
     }
     lines.push('');
   }

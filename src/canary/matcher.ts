@@ -20,7 +20,9 @@ interface NodeHit {
 const RANK: Record<string, number> = { 'plain:full': 0, 'encoded:full': 1, 'hash:full': 2, 'plain:marker': 3 };
 const rank = (f: CanaryForm): number => RANK[`${f.kind}:${f.exactness}`] ?? 9;
 
-const WORD = /[\p{L}\p{N}]/u;
+// For a common value, a hyphen or underscore next to it means it is part of a longer name,
+// such as the test page /tests/hiv-1-2-antibody-test, not the word the customer typed.
+const WORD = /[\p{L}\p{N}_-]/u;
 
 function find(text: string, lower: string, form: CanaryForm): number {
   const hay = form.caseSensitive ? text : lower;
