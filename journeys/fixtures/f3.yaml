@@ -1,0 +1,18 @@
+# Practice scenario f3: signup with "advanced matching" (hashed email and phone). Used by the test suite.
+name: "Practice scenario f3: hashed email and phone at signup"
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+canaries:
+  email: { type: email }
+  phone: { type: phone }
+steps:
+  - goto: /signup.html?scenario=f3
+  - fill: { into: "#email", text: "{{email}}" }
+  - fill: { into: "#phone", text: "{{phone}}" }
+  - click: "#signup-button"
+  - waitFor: "#done"
+settleMs: 400

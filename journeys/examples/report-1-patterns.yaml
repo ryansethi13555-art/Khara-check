@@ -1,0 +1,53 @@
+# Replays the three tracking patterns published in Khara Index Report 1 (16 November 2026),
+# on the practice pharmacy, with made-up test data. No real company is contacted.
+#
+#   npx tsx src/cli.ts run journeys/examples/report-1-patterns.yaml
+#
+# Pattern 1 (seen on a diagnostics site): the Reddit ad pixel, loaded through Google Tag Manager,
+#   picks the phone number out of the login form by itself ("automatic matching"), hashes it,
+#   and sends it with the name of the test the customer then looks at.
+# Pattern 2 (seen on a pharmacy site): a Google Analytics "login_completed" event carries a
+#   hash of the phone number, from the page that holds the search.
+# Pattern 3 (seen on a pharmacy site): Google Ads receives a hash of the email address
+#   ("enhanced conversions") on an ordinary page view.
+
+name: Report 1 patterns, replayed on the practice pharmacy
+description: A customer logs in with a phone number and email, then searches for a lab test.
+
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+
+canaries:
+  search:
+    type: search-term
+    base: HIV test
+    label: lab test search
+  phone:
+    type: phone
+  email:
+    type: email
+
+steps:
+  - goto: /login.html?scenario=r1
+    label: Opened the log in page
+  - fill: { into: "#phone", text: "{{phone}}" }
+    label: Entered the mobile number
+  - fill: { into: "#email", text: "{{email}}" }
+    label: Entered the email address
+  - click: "#login-button"
+    label: Pressed Log in
+  - waitFor: "#q"
+    label: Arrived on the home page, logged in
+  - type: { into: "#q", text: "{{search}}" }
+    label: Typed the test name into the search box
+  - click: "#search-button"
+    label: Pressed Search
+  - waitFor: ".results"
+    label: Waited for the results to appear
+  - screenshot: search-results
+settleMs: 600

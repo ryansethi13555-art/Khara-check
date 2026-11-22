@@ -1,0 +1,9 @@
+# Three practice pharmacies side by side. Runs entirely on this machine.
+#   npx tsx src/cli.ts fleet journeys/fleet-example.yaml
+name: Practice pharmacies scorecard
+consent: all      # for sites whose journey describes a consent banner
+repeat: 1
+journeys:
+  - fleet/practice-a.yaml
+  - fleet/practice-b.yaml
+  - fleet/practice-c.yaml

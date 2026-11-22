@@ -1,0 +1,1 @@
+{"leaks":[{"recipient":"Google Ads","canary":"search","strongest":"plain","fields":["data › search_term"]},{"recipient":"Criteo OneTag","canary":"search","strongest":"plain","fields":["p0 › kw"]},{"recipient":"Google Analytics 4","canary":"search","strongest":"plain","fields":["dl › q"]}],"firstParty":["search"]}

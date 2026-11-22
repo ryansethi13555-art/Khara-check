@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create account | Sample Pharmacy (practice site)</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body data-page="signup">
+<div class="practice">Practice site for testing Khara Check. Not a real pharmacy. Nothing here is sold.</div>
+<header><div class="bar">
+  <a class="logo" href="/">Sample <span>Pharmacy</span></a>
+</div></header>
+<main>
+  <h1>Create your account</h1>
+  <p class="lede">We will send order updates to your phone and email.</p>
+  <form class="stack" id="signup-form">
+    <label>Email <input type="email" id="email" name="email" autocomplete="off" required></label>
+    <label>Mobile number <input type="tel" id="phone" name="phone" autocomplete="off" required></label>
+    <button type="submit" id="signup-button">Create account</button>
+  </form>
+  <p class="ok" id="done" hidden>Account created. Welcome to Sample Pharmacy.</p>
+</main>
+<script src="/assets/app.js"></script>
+</body>
+</html>

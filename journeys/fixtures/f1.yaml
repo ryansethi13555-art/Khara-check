@@ -1,0 +1,16 @@
+# Practice scenario f1: Meta Pixel search event. Used by the test suite; expected findings in fixtures/expected/f1.json.
+name: "Practice scenario f1: Meta Pixel search event"
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /?scenario=f1
+  - type: { into: "#q", text: "{{search}}" }
+  - click: "#search-button"
+  - waitFor: ".results"
+settleMs: 400

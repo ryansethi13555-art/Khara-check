@@ -1,0 +1,16 @@
+# Practice scenario f6: Clean page: tracker loads, nothing planted leaves. Used by the test suite; expected findings in fixtures/expected/f6.json.
+name: "Practice scenario f6: Clean page: tracker loads, nothing planted leaves"
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /?scenario=f6
+  - type: { into: "#q", text: "{{search}}" }
+  - click: "#search-button"
+  - waitFor: ".results"
+settleMs: 400

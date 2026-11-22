@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search results | Sample Pharmacy (practice site)</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body data-page="search">
+<div class="practice">Practice site for testing Khara Check. Not a real pharmacy. Nothing here is sold.</div>
+<header><div class="bar">
+  <a class="logo" href="/">Sample <span>Pharmacy</span></a>
+  <form class="search" id="search-form" action="/search.html" method="get">
+    <input type="search" id="q" name="q" placeholder="Search medicines" autocomplete="off" required>
+    <input type="hidden" name="scenario" id="scenario">
+    <button type="submit" id="search-button">Search</button>
+  </form>
+  <nav><a id="signup-link" href="/signup.html">Create account</a></nav>
+</div></header>
+<main>
+  <h1>Results for "<span id="term"></span>"</h1>
+  <p class="lede">2 medicines found.</p>
+  <div class="grid results">
+    <div class="card"><h3 id="result-1"></h3><small>Strip of 10 tablets</small><div class="price">Rs 42</div></div>
+    <div class="card"><h3 id="result-2"></h3><small>Strip of 15 tablets, sustained release</small><div class="price">Rs 68</div></div>
+  </div>
+</main>
+<script src="/assets/app.js"></script>
+</body>
+</html>

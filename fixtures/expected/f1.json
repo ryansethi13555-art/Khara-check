@@ -1,0 +1,1 @@
+{"leaks":[{"recipient":"Meta Pixel","canary":"search","strongest":"plain","fields":["cd[search_string]"]}],"firstParty":["search"]}

@@ -1,0 +1,16 @@
+# Practice scenario f2: GA4 search event via sendBeacon. Used by the test suite; expected findings in fixtures/expected/f2.json.
+name: "Practice scenario f2: GA4 search event via sendBeacon"
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /?scenario=f2
+  - type: { into: "#q", text: "{{search}}" }
+  - click: "#search-button"
+  - waitFor: ".results"
+settleMs: 400

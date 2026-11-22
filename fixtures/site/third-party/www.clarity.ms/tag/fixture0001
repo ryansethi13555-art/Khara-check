@@ -1,0 +1,2 @@
+/* Imitation of a session-recording loader for Khara Check's practice site. It loads and sends nothing. */
+window.clarity = window.clarity || function () {};

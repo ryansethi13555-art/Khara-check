@@ -1,0 +1,47 @@
+# The 60-second demo. Runs entirely on this machine: Khara Check serves a practice pharmacy,
+# plays a customer, and shows which companies the page tried to tell.
+#
+#   npx tsx src/cli.ts run journeys/examples/fixture-pharmacy.yaml
+
+name: Sample Pharmacy, search then sign up
+description: A customer searches for a medicine, then creates an account with an email and a phone number.
+
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+
+canaries:
+  search:
+    type: search-term
+    base: metformin 500
+    label: medicine search
+  email:
+    type: email
+  phone:
+    type: phone
+
+steps:
+  - goto: /
+    label: Opened the pharmacy's home page
+  - type: { into: "#q", text: "{{search}}" }
+    label: Typed the medicine name into the search box
+  - click: "#search-button"
+    label: Pressed Search
+  - waitFor: ".results"
+    label: Waited for the results to appear
+  - screenshot: search-results
+  - click: "#signup-link"
+    label: Opened the Create account page
+  - fill: { into: "#email", text: "{{email}}" }
+    label: Entered the email address
+  - fill: { into: "#phone", text: "{{phone}}" }
+    label: Entered the phone number
+  - click: "#signup-button"
+    label: Pressed Create account
+  - waitFor: "#done"
+    label: Waited for the confirmation
+  - screenshot: account-created

@@ -1,0 +1,62 @@
+{
+  "name": "khara-check",
+  "version": "0.1.0",
+  "description": "Proves which ad and analytics companies receive what you type into a website. Plants test values, records every request, and writes a sealed evidence bundle and a plain-language report.",
+  "license": "Apache-2.0",
+  "author": "Ryan Sethi",
+  "homepage": "https://github.com/ryansethi13555-art/khara-check#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryansethi13555-art/khara-check.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryansethi13555-art/khara-check/issues"
+  },
+  "keywords": [
+    "privacy",
+    "tracking",
+    "evidence",
+    "dpdp",
+    "india",
+    "playwright",
+    "journalism",
+    "pixel",
+    "analytics"
+  ],
+  "type": "module",
+  "bin": {
+    "khara-check": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "journeys",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "khara-check": "tsx src/cli.ts",
+    "demo": "tsx src/cli.ts run journeys/examples/fixture-pharmacy.yaml",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run test/unit"
+  },
+  "dependencies": {
+    "lz-string": "^1.5.0",
+    "playwright": "1.63.0",
+    "tldts": "^6.1.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

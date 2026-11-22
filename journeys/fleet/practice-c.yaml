@@ -1,0 +1,17 @@
+# Fleet demo: Practice Pharmacy C
+name: "Practice Pharmacy C: search"
+site:
+  name: "Practice Pharmacy C"
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+consent: { accept: "#cmp-accept", reject: "#cmp-reject" }
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /?scenario=cmp
+  - type: { into: "#q", text: "{{search}}" }
+  - click: "#search-button"
+  - waitFor: ".results"
+settleMs: 400

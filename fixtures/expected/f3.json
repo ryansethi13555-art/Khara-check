@@ -1,0 +1,1 @@
+{"leaks":[{"recipient":"Meta Pixel","canary":"email","strongest":"hash","fields":["ud[em]"]},{"recipient":"Meta Pixel","canary":"phone","strongest":"hash","fields":["ud[ph]"]},{"recipient":"Google Ads","canary":"email","strongest":"hash","fields":["em"]},{"recipient":"Google Ads","canary":"phone","strongest":"hash","fields":["em"]}],"firstParty":["email","phone"]}

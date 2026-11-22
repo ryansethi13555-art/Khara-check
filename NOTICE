@@ -1,0 +1,8 @@
+Khara Check
+Copyright 2026 Ryan Sethi
+
+Designed and directed by Ryan Sethi, built with Anthropic's frontier models,
+for Khara Index (https://kharaindex.in).
+
+The practice site in fixtures/site imitates the publicly documented request shapes of
+third-party tracking libraries. It contains no code from those companies.

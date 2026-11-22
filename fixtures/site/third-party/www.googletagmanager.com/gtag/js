@@ -1,0 +1,89 @@
+/*
+ * Imitation of Google's gtag.js, written for Khara Check's practice site. It is not Google's code.
+ * It reproduces publicly documented request shapes:
+ *   GA4:        POST https://www.google-analytics.com/g/collect?v=2&tid=G-...   (sendBeacon, one event per body line)
+ *   Google Ads: GET  https://googleads.g.doubleclick.net/pagead/viewthroughconversion/<id>/?data=event=...;key=value
+ *               GET  https://www.googleadservices.com/pagead/conversion/<id>/?label=...&em=tv.1~em.<hash>~pn.<hash>
+ */
+(function () {
+  var cid = Math.floor(Math.random() * 1e9) + '.' + Math.floor(Date.now() / 1000);
+  var ga4Id = null, adsId = null, userData = null;
+  var pending = [], timer = null;
+
+  function sha256Base64Url(text) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+      var bin = ''; new Uint8Array(buf).forEach(function (b) { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    });
+  }
+
+  function flushGa4() {
+    timer = null;
+    if (!ga4Id || !pending.length) return;
+    var url = 'https://www.google-analytics.com/g/collect?v=2&tid=' + ga4Id + '&cid=' + cid +
+      '&ul=' + encodeURIComponent(navigator.language.toLowerCase()) +
+      '&sr=' + screen.width + 'x' + screen.height +
+      '&dl=' + encodeURIComponent(location.href) + '&dt=' + encodeURIComponent(document.title) + '&sid=' + Math.floor(Date.now() / 1000);
+    navigator.sendBeacon(url, pending.join('\r\n'));
+    pending = [];
+  }
+
+  function ga4Event(name, params) {
+    var parts = ['en=' + encodeURIComponent(name)];
+    Object.keys(params || {}).forEach(function (key) {
+      if (key === 'send_to') return;
+      parts.push('ep.' + key + '=' + encodeURIComponent(params[key]));
+    });
+    pending.push(parts.join('&'));
+    if (!timer) timer = setTimeout(flushGa4, 150);
+  }
+
+  function adsRemarketing(name, params) {
+    var data = ['event=' + name];
+    Object.keys(params || {}).forEach(function (key) {
+      if (key === 'send_to') return;
+      data.push(key + '=' + encodeURIComponent(params[key]));
+    });
+    new Image().src = 'https://googleads.g.doubleclick.net/pagead/viewthroughconversion/' + adsId + '/?random=' + Date.now() +
+      '&cv=11&fst=' + Date.now() + '&guid=ON&u_w=' + screen.width + '&u_h=' + screen.height +
+      '&url=' + encodeURIComponent(location.origin + location.pathname) +
+      '&tiba=' + encodeURIComponent(document.title) +
+      '&data=' + encodeURIComponent(data.join(';'));
+  }
+
+  function adsConversion(sendTo) {
+    var label = String(sendTo).split('/')[1] || '';
+    var done = userData
+      ? Promise.all([
+          sha256Base64Url(String(userData.email || '').trim().toLowerCase()),
+          sha256Base64Url(String(userData.phone_number || ''))
+        ]).then(function (h) { return '&em=' + encodeURIComponent('tv.1~em.' + h[0] + '~pn.' + h[1]); })
+      : Promise.resolve('');
+    done.then(function (em) {
+      new Image().src = 'https://www.googleadservices.com/pagead/conversion/' + adsId + '/?random=' + Date.now() +
+        '&cv=11&label=' + encodeURIComponent(label) + '&guid=ON' +
+        '&url=' + encodeURIComponent(location.origin + location.pathname) + em;
+    });
+  }
+
+  function handle(args) {
+    var command = args[0];
+    if (command === 'config') {
+      if (String(args[1]).indexOf('G-') === 0) { ga4Id = args[1]; ga4Event('page_view', {}); }
+      if (String(args[1]).indexOf('AW-') === 0) adsId = String(args[1]).slice(3);
+    } else if (command === 'set' && args[1] === 'user_data') {
+      userData = args[2];
+    } else if (command === 'event') {
+      var params = args[2] || {};
+      var sendTo = String(params.send_to || '');
+      if (args[1] === 'conversion') adsConversion(sendTo);
+      else if (sendTo.indexOf('AW-') === 0) adsRemarketing(args[1], params);
+      else ga4Event(args[1], params);
+    }
+  }
+
+  var layer = window.dataLayer = window.dataLayer || [];
+  var push = layer.push.bind(layer);
+  layer.push = function () { for (var i = 0; i < arguments.length; i++) handle(arguments[i]); return push.apply(null, arguments); };
+  layer.slice().forEach(handle);
+})();

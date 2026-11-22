@@ -1,0 +1,28 @@
+# Does "Reject all" work? Run it three ways and compare:
+#
+#   npx tsx src/cli.ts run journeys/examples/fixture-consent.yaml --consent all
+#
+# The practice pharmacy's banner is deliberately not respected, so the comparison has something to show.
+
+name: Sample Pharmacy, consent banner test
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+consent:
+  accept: "#cmp-accept"
+  reject: "#cmp-reject"
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /?scenario=cmp
+    label: Opened the pharmacy's home page
+  - type: { into: "#q", text: "{{search}}" }
+    label: Typed the medicine name into the search box
+  - click: "#search-button"
+    label: Pressed Search
+  - waitFor: ".results"
+    label: Waited for the results to appear
+settleMs: 500

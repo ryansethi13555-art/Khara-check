@@ -1,0 +1,16 @@
+# Practice scenario f9: the site shows a bot check first. Khara Check stops; a person clears it; the journey continues.
+name: "Practice scenario f9: bot check, cleared by a person"
+site:
+  name: Sample Pharmacy (practice site)
+  serve: ../../fixtures/site/first-party
+network:
+  mode: sandbox
+  stubs: ../../fixtures/site/third-party
+canaries:
+  search: { type: search-term, base: metformin 500, label: medicine search }
+steps:
+  - goto: /check.html
+  - type: { into: "#q", text: "{{search}}" }
+  - click: "#search-button"
+  - waitFor: ".results"
+settleMs: 400

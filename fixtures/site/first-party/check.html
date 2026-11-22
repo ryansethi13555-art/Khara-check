@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Just a moment...</title>
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<div class="practice">Practice site for testing Khara Check. This page imitates a "checking your browser" wall.</div>
+<main>
+  <h1>Checking that you are a person</h1>
+  <p class="lede">This practice wall stands in for the bot checks real sites show. Khara Check never clicks through it: a person does.</p>
+  <button id="human" type="button">I am a person</button>
+</main>
+<script>
+  document.getElementById('human').addEventListener('click', function () {
+    location.href = '/?scenario=f1';
+  });
+</script>
+</body>
+</html>
