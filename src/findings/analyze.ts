@@ -14,6 +14,7 @@ import type {
   RunInfo,
   Sighting,
 } from '../types.js';
+import { detectServerSideTagging } from './sst.js';
 import { hostMatches, hostOf, registrableDomain } from '../util/domains.js';
 
 /** Headers that cannot carry typed data, or that only repeat the URL. */
@@ -173,12 +174,14 @@ export function analyze(run: RunInfo, canaries: Canary[], records: RequestRecord
   const contactedList = [...contacted.values()].sort(
     (a, b) => Number(b.receivedCanary) - Number(a.receivedCanary) || a.recipient.domain.localeCompare(b.recipient.domain),
   );
+  const serverSideTagging = detectServerSideTagging(run, records);
   return {
     schema: 1,
     canaries,
     leaks,
     firstParty,
     contacted: contactedList,
+    ...(serverSideTagging.length ? { serverSideTagging } : {}),
     totals: {
       requests: records.length,
       thirdPartyRequests,

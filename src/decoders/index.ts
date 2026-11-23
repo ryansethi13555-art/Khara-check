@@ -6,6 +6,7 @@ import { ga4, googleAds, googleTagManager } from './google.js';
 import { metaPixel } from './meta.js';
 import { appsFlyer, branch, clarity, criteo, hotjar, taboola } from './others.js';
 import { redditPixel } from './reddit.js';
+import { hasGoogleTagShape } from '../findings/sst.js';
 import { toInput, type Decoder } from './types.js';
 
 /** Order matters where domains overlap: narrower decoders first. */
@@ -91,7 +92,10 @@ export function collectorShape(record: RequestRecord): { vendor: string; product
   if (/^\/v1\/(t|p|i|g|a|s|b|track|page|identify|batch)$/.test(path) && /"library"\s*:\s*\{\s*"name"\s*:\s*"analytics(\.js|-next)/.test(bodyText)) {
     return { vendor: 'Segment', product: 'Segment' };
   }
-  if (/\/g\/collect$/.test(path) && query.some(([k, v]) => k === 'tid' && /^G-/.test(v)) && query.some(([k, v]) => k === 'v' && v === '2')) {
+  if (
+    (/\/g\/collect$/.test(path) && query.some(([k, v]) => k === 'tid' && /^G-/.test(v)) && query.some(([k, v]) => k === 'v' && v === '2')) ||
+    hasGoogleTagShape(record)
+  ) {
     return { vendor: 'Google', product: 'Google Analytics 4 (server-side tagging)' };
   }
   if (/\/com\.snowplowanalytics\.snowplow\/tp2$|^\/i$/.test(path) && /snowplow|"schema"\s*:\s*"iglu:/.test(bodyText + query.map(([, v]) => v).join(' '))) {

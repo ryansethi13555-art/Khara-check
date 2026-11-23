@@ -29,6 +29,7 @@ export function summaryText(m: ReportModel): string {
     }
     lines.push('');
   }
+  for (const e of m.sst) lines.push(yellow(`  Google server-side tagging (${e.confidence}): ${e.host}${e.paths[0] ?? ''} received Google Analytics hits (${e.measurementIds.join(', ')})`));
   for (const c of m.collectors) lines.push(yellow(`  Collector at the site's own address: ${c.host} (${c.name}) got ${c.labels.join(', ')}`));
   if (m.stopped) lines.push(red(`  The journey stopped after "${m.stopped.after}". Findings cover only the steps that ran.`));
   if (m.quiet.length) lines.push(dim(`  Contacted, sent nothing planted: ${m.quiet.map((q) => q.name).join(', ')}`));

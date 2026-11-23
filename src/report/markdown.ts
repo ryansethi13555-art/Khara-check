@@ -53,6 +53,13 @@ export function renderMarkdown(m: ReportModel): string {
   }
   out.push('');
 
+  if (m.sst.length) {
+    out.push('## Server-side tagging', '');
+    out.push('Detected with the method of Moti et al., "The Bitter Pill" (section 3.4): the Google tag\'s parameters stay the same when the address changes. The browser sees only the first step, so the companies the server passes the data to are not in this report.', '');
+    for (const e of m.sst) out.push(`- **${e.host}** ${e.paths.join(', ')} (${e.confidence}, ${e.requestIds.join(', ')}): ${e.sentence}${e.addresses.length ? ` Server address: ${e.addresses.join(', ')}.` : ''}`);
+    out.push('');
+  }
+
   out.push('## What stayed put', '');
   if (m.collectors.length) {
     out.push('Sent to a data collector at the site\'s own address (the browser cannot see where it goes next):', '');

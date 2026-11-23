@@ -1,4 +1,5 @@
 import { hostOf, registrableDomain } from '../util/domains.js';
+import { GA4_TAG_PARAMS, type SstEndpoint } from '../findings/sst.js';
 import type { Analysis, Canary, Finding, RunInfo, Sighting, VendorCategory } from '../types.js';
 
 /** Everything the HTML, Markdown and terminal reports need, worked out once. */
@@ -18,6 +19,8 @@ export interface ReportModel {
   collectors: { name: string; host: string; labels: string[]; requests: number; requestIds: string[] }[];
   /** Services that received a value only through the Referer header, not in a tracker's own data. */
   refererOnly: string[];
+  /** Google server-side tagging endpoints, with one plain sentence each. */
+  sst: (SstEndpoint & { sentence: string })[];
   /** Unrecognised recipients whose domain carries the site's own name (apollo247.in for apollopharmacy.in): possibly the same owner, so not counted. */
   lookalikes: string[];
   /** Set when the journey stopped before its last step (a failed step or a bot check nobody cleared). */
@@ -371,6 +374,7 @@ export function buildModel(run: RunInfo, analysis: Analysis, seal: string): Repo
     firstParty,
     collectors,
     refererOnly,
+    sst: (analysis.serverSideTagging ?? []).map((e) => ({ ...e, sentence: sstSentence(e) })),
     lookalikes,
     ...(stopped ? { stopped } : {}),
     quiet,
@@ -433,4 +437,23 @@ function buildQuestions(groups: LeakGroup[], companies: string[]): ReportModel['
     },
   );
   return out;
+}
+
+/** One plain sentence about a server-side tagging endpoint, for every report format. */
+export function sstSentence(e: SstEndpoint): string {
+  const where = e.party === 'first' ? `${e.host}, at the site's own address` : `${e.host}, which is not a Google address`;
+  const confirm = [
+    e.selfHostedTagScripts.length
+      ? 'the requests were started by a Google Tag Manager script that the site serves itself'
+      : e.tagScripts.length
+        ? 'the requests were started by a Google Tag Manager or Google tag script'
+        : '',
+    e.hosting.length ? `the server is run on ${e.hosting.map((h) => h.replace(/ \(.*\)$/, '')).join(' and ')}` : '',
+  ].filter(Boolean);
+  return (
+    `The page sent Google Analytics hits (${e.measurementIds.join(', ') || 'no measurement ID'}) to ${where}, not to Google. ` +
+    `This is Google server-side tagging: a server the browser cannot see receives the data and can pass it on to Google and other companies. ` +
+    `The requests carry ${e.tagParams.length} of the Google tag's ${GA4_TAG_PARAMS.length} usual parameters` +
+    (confirm.length ? `, and ${list(confirm)}.` : '. Nothing else in the capture confirms it, so treat it as likely, not certain.')
+  );
 }

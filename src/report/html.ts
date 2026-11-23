@@ -270,7 +270,16 @@ export function renderHtml(model: ReportModel & { requestUrl: (id: string) => st
   ${shots.length ? `<div class="shots">${shots.map((s) => `<figure><img src="${esc(s.artifact)}" alt="Screenshot: ${esc(s.label)}" loading="lazy"><figcaption>Step ${s.index + 1}. ${esc(s.pageUrl)}</figcaption></figure>`).join('')}</div>` : ''}
 </section>`;
 
-  const rest = `
+  const sst = m.sst.length
+    ? `
+<section>
+  <h2>Server-side tagging</h2>
+  <p class="sub">Some sites send their Google Analytics data to a server of their own first, which then passes it on. The browser sees only the first step, so the companies at the end of the chain are hidden from this report. Detected with the method of Moti et al., "The Bitter Pill" (section 3.4): the Google tag's parameters stay the same when the address changes.</p>
+  <ul>${m.sst.map((e) => `<li><b>${esc(e.host)}</b> ${esc(e.paths.join(', '))} · ${e.requests} ${e.requests === 1 ? 'request' : 'requests'} (${esc(e.requestIds.slice(0, 8).join(', '))}${e.requestIds.length > 8 ? ', …' : ''}) · ${e.confidence === 'confirmed' ? 'confirmed' : 'likely'}<br>${esc(e.sentence)}${e.addresses.length ? ` <span class="none">Server address: ${esc(e.addresses.join(', '))}.</span>` : ''}</li>`).join('')}</ul>
+</section>`
+    : '';
+
+  const rest = `${sst}
 <section>
   <h2>What stayed put</h2>
   <div class="cols">
