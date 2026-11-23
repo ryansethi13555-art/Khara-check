@@ -138,21 +138,21 @@ describe('detecting server-side tagging endpoints', () => {
 
 describe('Google tag gateway (first-party mode)', () => {
   it('confirms a gateway endpoint by the tag script served from the same path prefix', () => {
-    const script = req('https://www.lab.example/5fk9/flq4oE9Uabc?id=GTM-TEST77', { method: 'GET', resourceType: 'script' });
-    const hit = req(`https://www.lab.example/5fk9/ag/g/c?${GA4_QUERY}`, {
-      initiator: gtmInitiator('https://www.lab.example/5fk9/flq4oE9Uabc?id=GTM-TEST77'),
+    const script = req('https://www.lab.example/x7qa/kT2wobfus?id=GTM-TEST77', { method: 'GET', resourceType: 'script' });
+    const hit = req(`https://www.lab.example/x7qa/ag/g/c?${GA4_QUERY}`, {
+      initiator: gtmInitiator('https://www.lab.example/x7qa/kT2wobfus?id=GTM-TEST77'),
       response: { status: 204, statusText: 'No Content', headers: { Server: 'cloudflare' } },
     });
     const r = run({ site: { name: 'Lab', origin: 'https://www.lab.example', firstPartyDomains: [] } });
     const [e] = detectServerSideTagging(r, [script, hit]);
-    expect(e).toMatchObject({ host: 'www.lab.example', party: 'first', gateway: true, confidence: 'confirmed', paths: ['/5fk9/ag/g/c'] });
+    expect(e).toMatchObject({ host: 'www.lab.example', party: 'first', gateway: true, confidence: 'confirmed', paths: ['/x7qa/ag/g/c'] });
     expect(e!.hosting).toEqual(['Google tag gateway on Cloudflare (Server: cloudflare)']);
-    expect(e!.selfHostedTagScripts).toContain('https://www.lab.example/5fk9/flq4oE9Uabc?id=GTM-TEST77');
+    expect(e!.selfHostedTagScripts).toContain('https://www.lab.example/x7qa/kT2wobfus?id=GTM-TEST77');
   });
 
   it('still confirms with an obfuscated script name and no id in it', () => {
-    const script = req('https://www.lab.example/5fk9/xYz123', { method: 'GET', resourceType: 'script' });
-    const hit = req(`https://www.lab.example/5fk9/ag/g/c?${GA4_QUERY}`, { initiator: gtmInitiator('https://www.lab.example/5fk9/xYz123') });
+    const script = req('https://www.lab.example/x7qa/xYz123', { method: 'GET', resourceType: 'script' });
+    const hit = req(`https://www.lab.example/x7qa/ag/g/c?${GA4_QUERY}`, { initiator: gtmInitiator('https://www.lab.example/x7qa/xYz123') });
     const r = run({ site: { name: 'Lab', origin: 'https://www.lab.example', firstPartyDomains: [] } });
     expect(detectServerSideTagging(r, [script, hit])[0]).toMatchObject({ gateway: true, confidence: 'confirmed' });
   });

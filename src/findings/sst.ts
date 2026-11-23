@@ -75,7 +75,7 @@ export interface SstEndpoint {
   hosting: string[];
   /**
    * True for Google tag gateway ("first-party mode"): a CDN such as Cloudflare forwards a path on
-   * the site's own domain (`/5fk9/ag/g/c`) to Google, instead of a tagging server the site runs.
+   * the site's own domain (`/x7qa/ag/g/c`) to Google, instead of a tagging server the site runs.
    * It hides the Google leg from the browser in the same way.
    */
   gateway: boolean;
@@ -106,7 +106,7 @@ export function hasGoogleTagShape(record: RequestRecord): boolean {
 
 /**
  * The path prefix of a Google tag gateway endpoint: the part before the gateway's own collect
- * paths (`/5fk9/` in `/5fk9/ag/g/c` or `/5fk9/g/collect`). Undefined for an ordinary endpoint at
+ * paths (`/x7qa/` in `/x7qa/ag/g/c` or `/x7qa/g/collect`). Undefined for an ordinary endpoint at
  * the root of its host.
  */
 export function gatewayPrefix(path: string): string | undefined {
@@ -192,7 +192,7 @@ export function detectServerSideTagging(run: RunInfo, records: RequestRecord[]):
   }
 
   // Google tag gateway serves the tag itself, under an obfuscated name, from the same path prefix
-  // as the hits (`/5fk9/…` for `/5fk9/ag/g/c`). A script loaded from that prefix on that host, or
+  // as the hits (`/x7qa/…` for `/x7qa/ag/g/c`). A script loaded from that prefix on that host, or
   // on that prefix's call stack, confirms the endpoint as the paper's initiator check does.
   for (const entry of byHost.values()) {
     const prefixes = entry.paths.map(gatewayPrefix).filter((p): p is string => Boolean(p));
