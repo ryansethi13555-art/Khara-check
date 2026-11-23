@@ -112,6 +112,8 @@ function wrappedLabel(kind: NonNullable<LayerNode['obfuscation']>): string {
       return 'inside a signed token (JWT)';
     case 'protobuf':
       return 'packed as binary (protobuf)';
+    case 'aes-gcm':
+      return 'encrypted, with the key sent alongside';
   }
 }
 
