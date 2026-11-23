@@ -444,7 +444,7 @@ export function sstSentence(e: SstEndpoint): string {
   const where = e.party === 'first' ? `${e.host}, at the site's own address` : `${e.host}, which is not a Google address`;
   const confirm = [
     e.selfHostedTagScripts.length
-      ? 'the requests were started by a Google Tag Manager script that the site serves itself'
+      ? `the requests were started by a ${e.gateway ? 'Google tag' : 'Google Tag Manager'} script that the site serves itself`
       : e.tagScripts.length
         ? 'the requests were started by a Google Tag Manager or Google tag script'
         : '',
@@ -452,7 +452,9 @@ export function sstSentence(e: SstEndpoint): string {
   ].filter(Boolean);
   return (
     `The page sent Google Analytics hits (${e.measurementIds.join(', ') || 'no measurement ID'}) to ${where}, not to Google. ` +
-    `This is Google server-side tagging: a server the browser cannot see receives the data and can pass it on to Google and other companies. ` +
+    (e.gateway
+      ? `This is Google tag gateway, a form of server-side tagging: the site's network provider forwards these requests to Google, so the browser never contacts Google directly. `
+      : `This is Google server-side tagging: a server the browser cannot see receives the data and can pass it on to Google and other companies. `) +
     `The requests carry ${e.tagParams.length} of the Google tag's ${GA4_TAG_PARAMS.length} usual parameters` +
     (confirm.length ? `, and ${list(confirm)}.` : '. Nothing else in the capture confirms it, so treat it as likely, not certain.')
   );

@@ -73,6 +73,12 @@ export interface SstEndpoint {
   selfHostedTagScripts: string[];
   /** Signs, from the capture, of who runs the server. */
   hosting: string[];
+  /**
+   * True for Google tag gateway ("first-party mode"): a CDN such as Cloudflare forwards a path on
+   * the site's own domain (`/5fk9/ag/g/c`) to Google, instead of a tagging server the site runs.
+   * It hides the Google leg from the browser in the same way.
+   */
+  gateway: boolean;
   /** Server IP addresses the browser connected to, for a WHOIS lookup. */
   addresses: string[];
   /**
@@ -98,6 +104,24 @@ export function hasGoogleTagShape(record: RequestRecord): boolean {
   return GA4_TAG_PARAMS.filter((p) => keys.has(p)).length >= MIN_TAG_PARAMS;
 }
 
+/**
+ * The path prefix of a Google tag gateway endpoint: the part before the gateway's own collect
+ * paths (`/5fk9/` in `/5fk9/ag/g/c` or `/5fk9/g/collect`). Undefined for an ordinary endpoint at
+ * the root of its host.
+ */
+export function gatewayPrefix(path: string): string | undefined {
+  const m = /^(\/[^/]+\/)(ag\/)?g\/(c|collect)$/.exec(path);
+  return m && (m[2] || m[3] === 'c') ? m[1] : undefined;
+}
+
+function pathOf(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return '';
+  }
+}
+
 function header(record: RequestRecord, name: string): string {
   const headers = record.response?.headers ?? {};
   const key = Object.keys(headers).find((k) => k.toLowerCase() === name);
@@ -114,7 +138,7 @@ export function detectServerSideTagging(run: RunInfo, records: RequestRecord[]):
   const own = (host: string): boolean =>
     host === siteHost || registrableDomain(host) === siteDomain || run.site.firstPartyDomains.some((d) => hostMatches(host, d));
 
-  const byHost = new Map<string, SstEndpoint & { scripts: Set<string>; selfHosted: Set<string> }>();
+  const byHost = new Map<string, SstEndpoint & { scripts: Set<string>; selfHosted: Set<string>; cdn?: string }>();
   for (const record of [...records].sort((a, b) => a.seq - b.seq)) {
     if (record.method === 'OPTIONS') continue;
     const host = hostOf(record.url);
@@ -132,6 +156,7 @@ export function detectServerSideTagging(run: RunInfo, records: RequestRecord[]):
         tagScripts: [],
         selfHostedTagScripts: [],
         hosting: [],
+        gateway: false,
         addresses: [],
         confidence: 'likely',
         scripts: new Set(),
@@ -161,12 +186,40 @@ export function detectServerSideTagging(run: RunInfo, records: RequestRecord[]):
       entry.hosting.push('Google Cloud (Server: Google Frontend)');
     }
     if (/\bgoogle\b/i.test(via) && !entry.hosting.includes(`Google (Via: ${via})`)) entry.hosting.push(`Google (Via: ${via})`);
+    if (/cloudflare/i.test(server)) entry.cdn = 'Cloudflare';
     const address = record.response?.remoteAddress?.replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
     if (address && !entry.addresses.includes(address)) entry.addresses.push(address);
   }
 
+  // Google tag gateway serves the tag itself, under an obfuscated name, from the same path prefix
+  // as the hits (`/5fk9/…` for `/5fk9/ag/g/c`). A script loaded from that prefix on that host, or
+  // on that prefix's call stack, confirms the endpoint as the paper's initiator check does.
+  for (const entry of byHost.values()) {
+    const prefixes = entry.paths.map(gatewayPrefix).filter((p): p is string => Boolean(p));
+    if (!prefixes.length) continue;
+    entry.gateway = true;
+    const fromPrefix = (url: string): boolean => hostOf(url) === entry.host && prefixes.some((p) => pathOf(url).startsWith(p));
+    for (const r of records) {
+      if (r.resourceType === 'script' && fromPrefix(r.url)) {
+        const clean = r.url.split('#')[0]!;
+        entry.scripts.add(clean);
+        entry.selfHosted.add(clean);
+      }
+    }
+    for (const id of entry.requestIds) {
+      const r = records.find((x) => x.id === id);
+      for (const script of [r?.initiator?.url, ...(r?.initiator?.stack ?? [])]) {
+        if (script && fromPrefix(script)) {
+          entry.scripts.add(script.split('#')[0]!);
+          entry.selfHosted.add(script.split('#')[0]!);
+        }
+      }
+    }
+    if (entry.cdn) entry.hosting.push(`Google tag gateway on ${entry.cdn} (Server: ${entry.cdn.toLowerCase()})`);
+  }
+
   return [...byHost.values()]
-    .map(({ scripts, selfHosted, ...e }) => {
+    .map(({ scripts, selfHosted, cdn: _cdn, ...e }) => {
       for (const target of run.dns?.[e.host] ?? []) {
         const hit = SST_HOSTING.find((h) => h.pattern.test(target));
         if (hit) e.hosting.push(`${hit.label} (DNS alias ${target})`);
