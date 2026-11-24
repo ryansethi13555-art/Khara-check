@@ -5,7 +5,7 @@ Khara Check is maintained by Khara Index. This page says what works, what we dec
 ## Works today (version 0.1)
 
 * `run`, `verify` and `report`, end to end.
-* Planted values and a matcher that finds them readable, encoded (URL encoding at any depth, base64 at any alignment, base64url, gzip, deflate, brotli, LZ-string, JWT, multipart, schema-less protobuf) and hashed (SHA-256 as hex, base64 and base64url, SHA-1, MD5), with normalised email and phone forms (`+91`, `91`, `0`, `0091`).
+* Planted values and a matcher that finds them readable, encoded (URL encoding at any depth, base64 at any alignment, base64url, gzip, deflate, brotli, LZ-string, CleverTap's "encryption in transit" (the key travels in the same request), JWT, multipart, schema-less protobuf) and hashed (SHA-256 as hex, base64 and base64url, SHA-1, MD5), with normalised email and phone forms (`+91`, `91`, `0`, `0091`).
 * Recording through the Chrome DevTools Protocol for every page and cross-site frame: wire headers, `sendBeacon` and keepalive bodies, WebSocket frames, initiator stacks.
 * A sandbox that answers every third-party request locally, for development and demos.
 * 15 vendor decoders (Google Analytics 4, Google Ads, Google Tag Manager, Meta Pixel, Reddit Pixel, CleverTap, MoEngage, WebEngage, Netcore, Microsoft Clarity, Hotjar, Branch, AppsFlyer, Criteo, Taboola) and 40 more companies recognised by domain.

@@ -25,7 +25,7 @@ Because each value is unique to the run, finding it in a request is not a coinci
 Trackers rarely send a value as it was typed. For each canary Khara Check prepares the forms it may take, then peels every request apart layer by layer and looks for those forms at every layer.
 
 * **Readable forms**: as typed, trimmed, lower-cased, spaces collapsed or removed, words joined by `-`, `_`, `+` or `%20`. Phone numbers with and without `+91`, `91`, `0` or `0091`, and grouped 5-5 or 3-3-4.
-* **Layers peeled**: URL parameters, percent-encoding at any depth, form bodies, multi-line batch bodies (GA4), JSON at any depth, base64 and base64url, gzip, zlib, raw deflate and brotli, LZ-string (used by CleverTap), JSON Web Tokens, multipart form parts, binary protobuf without a schema (raw hash bytes become hex), `;`-separated parameter lists (Google Ads, Floodlight). Decoded text must contain no control characters, so binary is never mistaken for text.
+* **Layers peeled**: URL parameters, percent-encoding at any depth, form bodies, multi-line batch bodies (GA4), JSON at any depth, base64 and base64url, gzip, zlib, raw deflate and brotli, LZ-string (used by CleverTap), payloads encrypted with a key that is sent in the same request (CleverTap's optional "encryption in transit", AES-GCM with fields `itp`, `itk` and `itv`), JSON Web Tokens, multipart form parts, binary protobuf without a schema (raw hash bytes become hex), `;`-separated parameter lists (Google Ads, Floodlight). Decoded text must contain no control characters, so binary is never mistaken for text.
 * **Base64 at any alignment**: a value buried inside a larger base64 blob is found even if it does not start on a 3-byte boundary.
 * **Hashes**: SHA-256 (hex, base64 and base64url), SHA-1 and MD5 of every normalised form. This is how Meta "advanced matching" and Google "enhanced conversions" send emails and phone numbers.
 
@@ -94,7 +94,7 @@ findings.json, report.html, report.md   derived from the evidence
 
 * One run is one observation. Sites change by the hour, by A/B test and by region. Repeat runs are needed before saying "usually".
 * Data shared server-to-server (for example the Meta Conversions API) never passes through the browser and cannot be seen.
-* A value encrypted, or hashed with a secret key, inside the page cannot be recognised. Absence of a finding is not proof of absence.
+* A value encrypted, or hashed with a secret key, inside the page cannot be recognised, unless the key travels in the same request. Absence of a finding is not proof of absence.
 * The vendor decoders explain fields from public documentation and observed traffic. They help a reader; they are not needed for a finding, which rests on the raw bytes alone.
 * "Questions this raises" in the report cite the Digital Personal Data Protection Act, 2023, as prompts for the site to answer. They are not legal conclusions.
 

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import LZString from 'lz-string';
 import { describe, expect, it } from 'vitest';
@@ -21,6 +21,18 @@ function canaries(seed: string): { search: Canary; email: Canary; phone: Canary 
     email: generateCanary('email', { type: 'email' }, opts),
     phone: generateCanary('phone', { type: 'phone' }, opts),
   };
+}
+
+/**
+ * CleverTap's web SDK (3.0 and later) can encrypt the event payload "in transit": AES-GCM with a
+ * random key, and the key itself travels base64-encoded in the same envelope (itp, itk, itv).
+ */
+function cleverTapEnvelope(plain: string): Record<string, unknown> {
+  const key = randomBytes(32);
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const sealed = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final(), cipher.getAuthTag()]);
+  return { itp: sealed.toString('base64'), itk: key.toString('base64'), itv: iv.toString('base64'), id: 'TEST-000-000Z', encrypted: true };
 }
 
 /** Every way we expect a tracker might wrap a value. Each returns the surface that would be on the wire. */
@@ -53,6 +65,8 @@ const TEXT_WRAPPERS: Record<string, (v: string) => Surface> = {
   'gzip then base64': (v) => body(JSON.stringify({ payload: b64(gzipSync(JSON.stringify({ search: v }))) })),
   'LZ-string (CleverTap style)': (v) =>
     url(`t=96&d=${encodeURIComponent(LZString.compressToBase64(JSON.stringify({ type: 'event', evtName: 'Searched', evtData: { Term: v } })))}`),
+  'CleverTap encryption in transit (key sent alongside)': (v) =>
+    url(`t=96&d=${encodeURIComponent(LZString.compressToBase64(JSON.stringify(cleverTapEnvelope(LZString.compressToBase64(JSON.stringify([{ type: 'event', evtName: 'Searched', evtData: { Term: v } }]))))))}`),
   'SHA-256 of lower-cased value': (v) => url(`h=${hash('sha256', v.trim().toLowerCase())}`),
   'SHA-256, upper-case hex': (v) => url(`h=${hash('sha256', v.trim().toLowerCase()).toUpperCase()}`),
   'MD5 of the value as typed': (v) => body(JSON.stringify({ id: hash('md5', v) })),

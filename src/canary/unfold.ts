@@ -1,3 +1,4 @@
+import { createDecipheriv } from 'node:crypto';
 import { brotliDecompressSync, gunzipSync, inflateRawSync, inflateSync } from 'node:zlib';
 import { protobufToJson } from './protobuf.js';
 import LZString from 'lz-string';
@@ -17,7 +18,7 @@ export interface LayerNode {
   /** Field name contributed by this layer, e.g. `cd[search_string]` or `evtData.term`. */
   field?: string;
   /** Set when this layer was hidden behind an encoding that is not ordinary transport encoding. */
-  obfuscation?: 'base64' | 'lz-string' | 'gzip' | 'jwt' | 'protobuf';
+  obfuscation?: 'base64' | 'lz-string' | 'gzip' | 'jwt' | 'protobuf' | 'aes-gcm';
   depth: number;
 }
 
@@ -128,7 +129,40 @@ function asJson(text: string): Edge[] | null {
     }
   };
   walk(parsed, '');
+  const opened = openKeyedEnvelope(parsed);
+  if (opened !== null) {
+    edges.unshift({
+      text: opened,
+      step: 'encrypted payload opened with the key sent beside it',
+      field: '(decrypted)',
+      obfuscation: 'aes-gcm',
+    });
+  }
   return edges;
+}
+
+/**
+ * CleverTap's web SDK (3.0 and later) has an "encryption in transit" option. It encrypts the
+ * payload with AES-GCM under a fresh random key, then sends the key (itk) and nonce (itv) in the
+ * same envelope as the ciphertext (itp). Anyone holding the request can open it, so it hides
+ * nothing from the receiver; it only hides the contents from a reader who does not know the shape.
+ */
+function openKeyedEnvelope(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const { itp, itk, itv } = value as Record<string, unknown>;
+  if (typeof itp !== 'string' || typeof itk !== 'string' || typeof itv !== 'string') return null;
+  try {
+    const key = Buffer.from(itk, 'base64');
+    const iv = Buffer.from(itv, 'base64');
+    const sealed = Buffer.from(itp, 'base64');
+    if (![16, 24, 32].includes(key.length) || iv.length < 8 || sealed.length <= 16) return null;
+    const decipher = createDecipheriv(`aes-${key.length * 8}-gcm` as 'aes-256-gcm', key, iv);
+    decipher.setAuthTag(sealed.subarray(sealed.length - 16));
+    const plain = Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]).toString('utf8');
+    return isCleanText(plain) ? plain : null;
+  } catch {
+    return null;
+  }
 }
 
 function asBase64(text: string): Edge[] | null {

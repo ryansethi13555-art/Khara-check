@@ -30,15 +30,24 @@ beforeAll(async () => {
       '--no-default-browser-check',
       '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost',
       '--no-proxy-server',
-      // Chromium refuses to start its sandbox as root (as in some CI containers).
-      ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []),
+      // Playwright launches Chromium without its sandbox by default, and so must this test:
+      // GitHub's Ubuntu 24.04 runners block the user namespaces the sandbox needs, and Chromium
+      // refuses to start its sandbox as root. The listen-only code under test is the same either way.
+      '--no-sandbox',
       'about:blank',
     ],
     { stdio: ['ignore', 'ignore', 'pipe'] },
   );
   endpoint = await new Promise<string>((resolve, reject) => {
     let buf = '';
-    const timer = setTimeout(() => reject(new Error('Chromium did not start')), 20_000);
+    const timer = setTimeout(
+      () => reject(new Error(`Chromium did not start within 20 seconds:\n${buf.slice(-2000)}`)),
+      20_000,
+    );
+    browserProcess.once('exit', (code, signal) => {
+      clearTimeout(timer);
+      reject(new Error(`Chromium exited before it was ready (${signal ?? code}):\n${buf.slice(-2000)}`));
+    });
     browserProcess.stderr!.on('data', (chunk) => {
       buf += String(chunk);
       const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf);
