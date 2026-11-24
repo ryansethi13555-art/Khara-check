@@ -215,7 +215,11 @@ The suite plants values in 25 wrappers across 25 random seeds and checks every o
 | f8 | Double URL encoding and changed letter case | Google Ads, Criteo and GA4, readable |
 | r1 | The three Report 1 patterns after a login | Reddit, Google Analytics and Google Ads, as in the table above |
 
-It also checks that `verify` catches a one-character change to the capture and a hand-edited finding; that `attach` finds the same leaks when a person drives a separately started browser; that an imported HAR file gives the same findings as the watched run; that a bot check stops an unwatched run and is handed to a person in a watched one; and that the consent comparison and fleet scorecard name the right companies. A further set reproduces, with invented data, what the first field test on real health sites showed: a collector hidden behind the site's own address, Referer-only receipts, a blocked run, a sister domain of the site, and short common words such as "HIV" inside test page names. 99 tests in all, run on every push.
+It also checks that `verify` catches a one-character change to the capture and a hand-edited finding; that `attach` finds the same leaks when a person drives a separately started browser; that an imported HAR file gives the same findings as the watched run; that a bot check stops an unwatched run and is handed to a person in a watched one; and that the consent comparison and fleet scorecard name the right companies. A further set reproduces, with invented data, what the first field test on real health sites showed: a collector hidden behind the site's own address, Referer-only receipts, a blocked run, a sister domain of the site, and short common words such as "HIV" inside test page names. Another set checks the server-side tagging detector against random paths, batched hits, Google tag gateway paths and Google's own endpoints. 113 tests in all, run on every push.
+
+## Server-side tagging
+
+Some sites send their Google Analytics data to a server of their own first (`sgtm.example.com/g/collect`), and that server passes it on to Google and others out of the browser's sight. Khara Check flags these endpoints in every report, whether or not a planted value reached them, using the method of Moti et al., [“The Bitter Pill: Tracking and Remarketing on EU Pharmacy Websites”](https://gunesacar.net/papers/bitter-pill-pharmacy-privacy-dpm-25.pdf) (section 3.4): the Google tag's URL parameters stay the same when the address changes. Each endpoint is marked confirmed when the request's initiator was a Tag Manager script or the server is visibly Google-hosted, and likely otherwise. Details in [docs/METHOD.md](docs/METHOD.md#google-server-side-tagging).
 
 ## Responsible use
 
@@ -236,5 +240,7 @@ See [ROADMAP.md](ROADMAP.md). Next: Android app capture through mitmproxy, trust
 Designed and directed by **Ryan Sethi**, built with Anthropic's frontier models, for [Khara Index](https://kharaindex.in).
 
 The Markup's [Blacklight](https://themarkup.org/blacklight) showed that a public tracker inspector could be rigorous and readable at once. Khara Check takes a narrower aim: proving that what you typed reached a named company, with evidence anyone can re-verify.
+
+The server-side tagging check follows Moti, Frings, Utz, Zuiderveen Borgesius and Acar, [“The Bitter Pill: Tracking and Remarketing on EU Pharmacy Websites”](https://gunesacar.net/papers/bitter-pill-pharmacy-privacy-dpm-25.pdf).
 
 Licensed under the [Apache License 2.0](LICENSE).

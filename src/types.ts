@@ -1,3 +1,5 @@
+import type { SstEndpoint } from './findings/sst.js';
+
 /**
  * Shared types. Everything that ends up in an evidence bundle is described here,
  * so that `khara-check report` and `khara-check verify` can re-read a bundle without a browser.
@@ -252,6 +254,11 @@ export interface Analysis {
   firstParty: Finding[];
   /** Every third party contacted during the run, whether or not it received a canary. */
   contacted: ContactedParty[];
+  /**
+   * Google server-side tagging endpoints: hosts that are not Google's but received the Google
+   * tag's GA4 hits, whether or not a planted value was in them. Present only when one was found.
+   */
+  serverSideTagging?: SstEndpoint[];
   totals: {
     requests: number;
     thirdPartyRequests: number;
